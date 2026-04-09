@@ -86,10 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Use singleton promise to prevent concurrent auth checks
         if (!authInitPromise) {
-          authInitPromise = supabase.auth.getSession().then(res => {
+          authInitPromise = supabase.auth.getSession().then((res) => {
             authInitPromise = null; // Reset after completion
             return res.data.session;
-          }).catch(err => {
+          }).catch((err: unknown) => {
             authInitPromise = null;
             throw err;
           });
