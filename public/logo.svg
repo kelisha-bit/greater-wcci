@@ -18,16 +18,35 @@
       <stop offset="100%" stop-color="#c7d2fe"/>
     </radialGradient>
   </defs>
+
+  <!-- Outer gold ring -->
   <circle cx="100" cy="100" r="97" fill="url(#goldRing)"/>
+  <!-- Inner purple circle -->
   <circle cx="100" cy="100" r="90" fill="url(#bgGrad)"/>
+
+  <!-- Gold Cross -->
   <rect x="91" y="22" width="18" height="72" rx="3" fill="url(#crossGrad)"/>
   <rect x="68" y="42" width="64" height="18" rx="3" fill="url(#crossGrad)"/>
+
+  <!-- Dove body -->
   <ellipse cx="100" cy="130" rx="28" ry="20" fill="url(#doveGrad)" transform="rotate(-15 100 130)"/>
+
+  <!-- Dove head -->
   <circle cx="126" cy="118" r="12" fill="url(#doveGrad)"/>
+
+  <!-- Dove beak -->
   <polygon points="136,116 145,119 136,122" fill="#fde68a"/>
+
+  <!-- Left wing -->
   <path d="M 95 122 C 60 100, 30 95, 20 115 C 40 108, 65 118, 85 130 Z" fill="url(#doveGrad)"/>
+  <!-- Left wing lower feathers -->
   <path d="M 90 128 C 55 115, 25 118, 18 135 C 40 122, 68 128, 88 138 Z" fill="white" opacity="0.85"/>
+
+  <!-- Right wing -->
   <path d="M 108 118 C 140 95, 168 90, 178 108 C 158 102, 132 114, 115 126 Z" fill="url(#doveGrad)"/>
+  <!-- Right wing lower feathers -->
   <path d="M 112 125 C 145 110, 172 112, 180 128 C 158 118, 132 122, 116 134 Z" fill="white" opacity="0.85"/>
+
+  <!-- Tail -->
   <path d="M 85 145 C 80 160, 72 168, 68 175 C 80 165, 90 158, 100 152 C 110 158, 120 165, 132 175 C 128 168, 120 160, 115 145 Z" fill="url(#doveGrad)"/>
 </svg>

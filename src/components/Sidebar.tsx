@@ -10,7 +10,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Church,
   BookOpen,
   Bell,
   BarChart3,
@@ -89,23 +88,23 @@ export default function Sidebar() {
       >
       {/* Logo */}
       <div className="h-16 flex-none flex items-center justify-between px-4 border-b border-stone-700/50">
-        <motion.div
-          initial={false}
-          animate={{ opacity: sidebarOpen ? 1 : 0 }}
-          className="flex items-center gap-3"
-        >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
-            <Church className="w-6 h-6 text-white" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg shrink-0">
+            <img src="/logo.svg" alt="Greater Works City Church" className="w-full h-full object-cover" />
           </div>
-          {sidebarOpen && (
-            <span className="font-serif font-bold text-lg">Greater Works City Church</span>
-          )}
-        </motion.div>
+          <motion.span
+            initial={false}
+            animate={{ opacity: sidebarOpen ? 1 : 0, width: sidebarOpen ? 'auto' : 0 }}
+            className="font-serif font-bold text-lg whitespace-nowrap overflow-hidden"
+          >
+            Greater Works City Church
+          </motion.span>
+        </div>
         <button
           onClick={toggleSidebar}
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           aria-expanded={sidebarOpen}
-          className="p-2 rounded-lg hover:bg-stone-700/50 transition-colors"
+          className="p-2 rounded-lg hover:bg-stone-700/50 transition-colors shrink-0"
         >
           {sidebarOpen ? (
             <ChevronLeft className="w-5 h-5" />
