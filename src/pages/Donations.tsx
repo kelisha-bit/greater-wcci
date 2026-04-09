@@ -4,12 +4,14 @@ import {
   Search, Plus, Download, DollarSign,
   TrendingUp, ChevronDown, X,
   Gift, Users, Loader2, Calendar,
-  Trash2, Mail, RefreshCw, CheckSquare, Square
+  Trash2, Mail, RefreshCw, CheckSquare, Square,
+  CalendarDays, CalendarRange, CalendarClock, CalendarCheck,
+  Printer
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { donationMethodColors } from '../constants/colors';
-import { fundOptions, donationMethodOptions } from '../constants/options';
+import { donationMethodColors, donationCategoryColors } from '../constants/colors';
+import { donationMethodOptions, donationCategoryOptions } from '../constants/options';
 import { useDonations, useMembers } from '../hooks/useData';
 import { useAPI } from '../hooks/useAPI';
 import { useNotification } from '../hooks/useNotification';
@@ -40,6 +42,7 @@ export default function Donations() {
     startDate: '',
     endDate: ''
   });
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -49,6 +52,8 @@ export default function Donations() {
   const [showDonorModal, setShowDonorModal] = useState(false);
   const [donorProfile, setDonorProfile] = useState<{ id?: string; name?: string; email?: string } | null>(null);
   const [donorHistory, setDonorHistory] = useState<any[]>([]);
+  const [showPrintReceipt, setShowPrintReceipt] = useState(false);
+  const [receiptDonation, setReceiptDonation] = useState<any>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -57,16 +62,71 @@ export default function Donations() {
     donorEmail: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    fundType: 'General Fund',
-    method: 'Online',
+    category: 'Offering',
+    paymentMethod: 'Online',
     isRecurring: false,
     notes: '',
+    reference: '',
   });
 
   // Fetch Data
+  // Helper function to get date range based on preset
+  const getDateRangeFromPreset = useCallback((preset: string) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (preset) {
+      case 'today':
+        return {
+          startDate: today.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0]
+        };
+      case 'week': {
+        const startOfWeek = new Date(today);
+        const dayOfWeek = startOfWeek.getDay();
+        const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Monday as start
+        startOfWeek.setDate(diff);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        return {
+          startDate: startOfWeek.toISOString().split('T')[0],
+          endDate: endOfWeek.toISOString().split('T')[0]
+        };
+      }
+      case 'month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return {
+          startDate: startOfMonth.toISOString().split('T')[0],
+          endDate: endOfMonth.toISOString().split('T')[0]
+        };
+      }
+      case 'year': {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const endOfYear = new Date(now.getFullYear(), 11, 31);
+        return {
+          startDate: startOfYear.toISOString().split('T')[0],
+          endDate: endOfYear.toISOString().split('T')[0]
+        };
+      }
+      default:
+        return { startDate: '', endDate: '' };
+    }
+  }, []);
+
+  // Handle date preset change
+  const handleDatePresetChange = useCallback((preset: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom') => {
+    setDatePreset(preset);
+    if (preset === 'all') {
+      setDateRange({ startDate: '', endDate: '' });
+    } else if (preset !== 'custom') {
+      setDateRange(getDateRangeFromPreset(preset));
+    }
+  }, [getDateRangeFromPreset]);
+
   const donationFilters = useMemo(() => ({
     fundType: selectedFund === 'all' ? undefined : selectedFund,
-    method: selectedMethod === 'all' ? undefined : selectedMethod,
+    paymentMethod: selectedMethod === 'all' ? undefined : selectedMethod,
     donorId: selectedIndividual !== 'all' && selectedIndividual !== 'anonymous' ? selectedIndividual : undefined,
     dateFrom: dateRange.startDate || undefined,
     dateTo: dateRange.endDate || undefined,
@@ -76,6 +136,23 @@ export default function Donations() {
 
   const { data: donations, isLoading, error, refetch, total } = useDonations(page, pageSize, donationFilters);
   const { data: members } = useMembers(1, 1000);
+
+  // Keep selection scoped to the currently visible dataset (page/filters/search)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, pageSize, donationFilters, searchQuery]);
+
+  // Sync custom date changes with preset state
+  useEffect(() => {
+    if (dateRange.startDate || dateRange.endDate) {
+      if (datePreset !== 'custom' && datePreset !== 'all') {
+        const presetRange = getDateRangeFromPreset(datePreset);
+        if (presetRange.startDate !== dateRange.startDate || presetRange.endDate !== dateRange.endDate) {
+          setDatePreset('custom');
+        }
+      }
+    }
+  }, [dateRange, datePreset, getDateRangeFromPreset]);
 
   const filteredDonations = useMemo(() => {
     if (!donations) return [];
@@ -92,7 +169,7 @@ export default function Donations() {
       const matchesDateRange = (!dateRange.startDate || donationDate >= new Date(dateRange.startDate)) &&
                               (!dateRange.endDate || donationDate <= new Date(dateRange.endDate));
 
-      const matchesMethod = selectedMethod === 'all' || donation.method === selectedMethod;
+      const matchesMethod = selectedMethod === 'all' || donation.paymentMethod === selectedMethod;
       const amt = Number(donation.amount) || 0;
       const matchesAmount =
         (!amountRange.min || amt >= Number(amountRange.min)) &&
@@ -102,30 +179,43 @@ export default function Donations() {
     });
   }, [donations, searchQuery, selectedIndividual, dateRange, selectedMethod, amountRange]);
 
-  const totalThisMonth = useMemo(() => {
+  // Calculate filtered total based on current filter selection
+  const filteredTotal = useMemo(() => {
     if (!filteredDonations) return 0;
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    return filteredDonations
-      .filter(d => {
-        const dDate = new Date(d.date);
-        return dDate.getMonth() === thisMonth && dDate.getFullYear() === thisYear;
-      })
-      .reduce((sum, d) => sum + d.amount, 0);
+    return filteredDonations.reduce((sum, d) => sum + d.amount, 0);
   }, [filteredDonations]);
+
+  // Dynamic label based on date preset
+  const periodLabel = useMemo(() => {
+    switch (datePreset) {
+      case 'today': return 'Today';
+      case 'week': return 'This Week';
+      case 'month': return 'This Month';
+      case 'year': return 'This Year';
+      case 'custom': return 'Selected Period';
+      default: return 'Total';
+    }
+  }, [datePreset]);
+
+  // Count of donations in current filter
+  const filteredCount = useMemo(() => {
+    return filteredDonations?.length || 0;
+  }, [filteredDonations]);
+
+  // Average donation in current filter
+  const averageDonation = useMemo(() => {
+    if (!filteredDonations || filteredDonations.length === 0) return 0;
+    return filteredTotal / filteredDonations.length;
+  }, [filteredDonations, filteredTotal]);
 
   const recurringTotal = useMemo(() => {
     if (!filteredDonations) return 0;
     return filteredDonations.filter(d => d.isRecurring).reduce((sum, d) => sum + d.amount, 0);
   }, [filteredDonations]);
 
-  const ytdTotal = useMemo(() => {
+  const recurringCount = useMemo(() => {
     if (!filteredDonations) return 0;
-    const thisYear = new Date().getFullYear();
-    return filteredDonations
-      .filter(d => new Date(d.date).getFullYear() === thisYear)
-      .reduce((sum, d) => sum + d.amount, 0);
+    return filteredDonations.filter(d => d.isRecurring).length;
   }, [filteredDonations]);
 
   const fundDistribution = useMemo(() => {
@@ -143,24 +233,86 @@ export default function Donations() {
     }));
   }, [filteredDonations]);
 
-  const monthlyTrend = useMemo(() => {
-    if (!filteredDonations) return [];
+  // Dynamic trend chart based on filter selection
+  const trendData = useMemo(() => {
+    if (!filteredDonations || filteredDonations.length === 0) return [];
+    
+    // For day view - show hourly breakdown
+    if (datePreset === 'today') {
+      const hours: Record<string, number> = {};
+      for (let i = 0; i < 24; i++) {
+        hours[i.toString().padStart(2, '0')] = 0;
+      }
+      filteredDonations.forEach(d => {
+        const hour = new Date(d.date).getHours().toString().padStart(2, '0');
+        hours[hour] = (hours[hour] || 0) + d.amount;
+      });
+      return Object.entries(hours).map(([hour, amount]) => ({
+        name: `${hour}:00`,
+        amount
+      }));
+    }
+    
+    // For week view - show daily breakdown
+    if (datePreset === 'week') {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dayTotals: Record<string, number> = {};
+      days.forEach(d => dayTotals[d] = 0);
+      
+      filteredDonations.forEach(d => {
+        const date = new Date(d.date);
+        const dayIndex = date.getDay();
+        const dayName = days[dayIndex === 0 ? 6 : dayIndex - 1]; // Adjust for Monday start
+        dayTotals[dayName] = (dayTotals[dayName] || 0) + d.amount;
+      });
+      
+      return days.map(name => ({ name, amount: dayTotals[name] || 0 }));
+    }
+    
+    // For month view - show weekly breakdown
+    if (datePreset === 'month') {
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+      const weekTotals: Record<string, number> = {};
+      weeks.forEach(w => weekTotals[w] = 0);
+      
+      filteredDonations.forEach(d => {
+        const date = new Date(d.date);
+        const dayOfMonth = date.getDate();
+        const weekNum = Math.min(Math.ceil(dayOfMonth / 7), 5);
+        const weekName = `Week ${weekNum}`;
+        weekTotals[weekName] = (weekTotals[weekName] || 0) + d.amount;
+      });
+      
+      return weeks.map(name => ({ name, amount: weekTotals[name] || 0 }));
+    }
+    
+    // For year or all - show monthly breakdown
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const trend: Record<string, number> = {};
+    months.forEach(m => trend[m] = 0);
     
-    const thisYear = new Date().getFullYear();
-    filteredDonations
-      .filter(d => new Date(d.date).getFullYear() === thisYear)
-      .forEach(d => {
-        const month = months[new Date(d.date).getMonth()];
-        trend[month] = (trend[month] || 0) + d.amount;
-      });
+    filteredDonations.forEach(d => {
+      const month = months[new Date(d.date).getMonth()];
+      trend[month] = (trend[month] || 0) + d.amount;
+    });
 
     return months.map(name => ({
       name,
       amount: trend[name] || 0
     }));
-  }, [filteredDonations]);
+  }, [filteredDonations, datePreset]);
+
+  // Dynamic chart title based on filter
+  const chartTitle = useMemo(() => {
+    switch (datePreset) {
+      case 'today': return 'Hourly Giving';
+      case 'week': return 'Daily Giving';
+      case 'month': return 'Weekly Giving';
+      case 'year': return 'Monthly Giving';
+      case 'custom': return 'Giving Trend';
+      default: return 'Monthly Giving';
+    }
+  }, [datePreset]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,10 +330,11 @@ export default function Donations() {
         donorEmail: formData.donorId === 'anonymous' ? undefined : selectedMember?.email,
         amount: Number(formData.amount),
         date: formData.date,
-        fundType: formData.fundType,
-        method: formData.method,
+        fundType: formData.category,
+        paymentMethod: formData.paymentMethod,
         isRecurring: formData.isRecurring,
         notes: formData.notes,
+        reference: formData.reference,
       });
 
       if (response.success) {
@@ -193,10 +346,11 @@ export default function Donations() {
           donorEmail: '',
           amount: '',
           date: new Date().toISOString().split('T')[0],
-          fundType: 'General Fund',
-          method: 'Online',
+          category: 'Offering',
+          paymentMethod: 'Online',
           isRecurring: false,
           notes: '',
+          reference: '',
         });
         refetch();
       } else {
@@ -241,7 +395,7 @@ export default function Donations() {
     if (!donations) return;
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Donor,Email,Amount,Fund,Method,Date,Recurring\n"
-      + donations.map(d => `${d.donorName || 'Anonymous'},${d.donorEmail || ''},${d.amount},${d.fundType},${d.method},${d.date},${d.isRecurring ? 'Yes' : 'No'}`).join("\n");
+      + donations.map(d => `${d.donorName || 'Anonymous'},${d.donorEmail || ''},${d.amount},${d.fundType},${d.paymentMethod},${d.date},${d.isRecurring ? 'Yes' : 'No'}`).join("\n");
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -257,7 +411,7 @@ export default function Donations() {
     const selected = donations.filter(d => selectedIds.has(d.id));
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Donor,Email,Amount,Fund,Method,Date,Recurring,Receipt,Reference\n"
-      + selected.map(d => `${d.donorName || 'Anonymous'},${d.donorEmail || ''},${d.amount},${d.fundType},${d.method},${d.date},${d.isRecurring ? 'Yes' : 'No'},${d.receiptNumber || ''},${d.reference || ''}`).join("\n");
+      + selected.map(d => `${d.donorName || 'Anonymous'},${d.donorEmail || ''},${d.amount},${d.fundType},${d.paymentMethod},${d.date},${d.isRecurring ? 'Yes' : 'No'},${d.receiptNumber || ''},${d.reference || ''}`).join("\n");
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -300,11 +454,20 @@ export default function Donations() {
       `Email: ${d.donorEmail || '-'}`,
       `Amount: $${Number(d.amount).toLocaleString()}`,
       `Fund: ${d.fundType}`,
-      `Method: ${d.method}`,
+      `Method: ${d.paymentMethod}`,
       d.reference ? `Reference: ${d.reference}` : '',
       d.isRecurring ? `Recurring: Yes` : `Recurring: No`,
     ].filter(Boolean);
     return lines.join('\n');
+  };
+
+  const openPrintReceipt = (donation: any) => {
+    setReceiptDonation(donation);
+    setShowPrintReceipt(true);
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const sendEmailReceipts = () => {
@@ -322,20 +485,46 @@ export default function Donations() {
     showNotification('success', 'Email drafts opened', 'Receipts prepared in your email client.');
   };
 
-  const deleteSelected = async () => {
+  const deleteSelected = async (idsFromCaller?: string[]) => {
     if (!canManageDonations) {
       showNotification('error', 'Insufficient permissions', 'Only staff or admins can delete donations.');
       return;
     }
-    const ids = Array.from(selectedIds);
+    const ids = idsFromCaller ?? Array.from(selectedIds);
     if (ids.length === 0) return;
     try {
-      await Promise.all(ids.map(id => api.donations.deleteDonation(id)));
-      showNotification('success', 'Donations deleted', `${ids.length} donations removed.`);
-      setSelectedIds(new Set());
-      refetch();
-    } catch {
-      showNotification('error', 'Delete failed', 'Could not delete one or more donations.');
+      const results = await Promise.all(ids.map((id) => api.donations.deleteDonation(id)));
+      const failures = results
+        .map((res, idx) => ({ res, id: ids[idx] }))
+        .filter(({ res }) => !res?.success);
+
+      if (failures.length === 0) {
+        showNotification('success', 'Donations deleted', `${ids.length} donations removed.`);
+        setSelectedIds(new Set());
+        refetch();
+        return;
+      }
+
+      // Some (or all) deletes failed (commonly due to RLS / permissions)
+      const firstError = failures[0]?.res?.error;
+      const deletedCount = ids.length - failures.length;
+      showNotification(
+        'error',
+        'Delete failed',
+        `${deletedCount} deleted, ${failures.length} failed.${firstError ? ` ${firstError}` : ''}`
+      );
+
+      // Refresh anyway in case some succeeded
+      if (deletedCount > 0) {
+        setSelectedIds(new Set());
+        refetch();
+      }
+    } catch (e) {
+      showNotification(
+        'error',
+        'Delete failed',
+        e instanceof Error ? e.message : 'Could not delete one or more donations.'
+      );
     }
   };
 
@@ -425,7 +614,7 @@ export default function Donations() {
                 </button>
                 {canManageDonations && (
                   <button
-                    onClick={deleteSelected}
+                    onClick={() => deleteSelected()}
                     className="px-3 py-2 rounded-lg bg-rose-600 text-white text-sm hover:bg-rose-700 flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -449,8 +638,8 @@ export default function Donations() {
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-stone-800">${totalThisMonth.toLocaleString()}</p>
-                <p className="text-xs text-stone-500">This Month</p>
+                <p className="text-2xl font-bold text-stone-800">${filteredTotal.toLocaleString()}</p>
+                <p className="text-xs text-stone-500">{periodLabel}</p>
               </div>
             </div>
           </motion.div>
@@ -466,7 +655,7 @@ export default function Donations() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-stone-800">${recurringTotal.toLocaleString()}</p>
-                <p className="text-xs text-stone-500">Recurring</p>
+                <p className="text-xs text-stone-500">Recurring ({recurringCount})</p>
               </div>
             </div>
           </motion.div>
@@ -482,7 +671,7 @@ export default function Donations() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-stone-800">{new Set(filteredDonations?.map(d => d.donorId || d.donorName)).size}</p>
-                <p className="text-xs text-stone-500">Donors</p>
+                <p className="text-xs text-stone-500">Donors ({filteredCount} gifts)</p>
               </div>
             </div>
           </motion.div>
@@ -497,8 +686,8 @@ export default function Donations() {
                 <Gift className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-stone-800">${(ytdTotal/1000).toFixed(1)}K</p>
-                <p className="text-xs text-stone-500">YTD Total</p>
+                <p className="text-2xl font-bold text-stone-800">${averageDonation.toFixed(0)}</p>
+                <p className="text-xs text-stone-500">Avg Gift</p>
               </div>
             </div>
           </motion.div>
@@ -512,13 +701,13 @@ export default function Donations() {
             transition={{ delay: 0.2 }}
             className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
           >
-            <h3 className="text-lg font-serif font-bold text-stone-800 mb-4">Monthly Giving</h3>
+            <h3 className="text-lg font-serif font-bold text-stone-800 mb-4">{chartTitle}</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <BarChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} tickFormatter={(v) => `$${v/1000}k`} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} tickFormatter={(v) => v >= 1000 ? `$${v/1000}k` : `$${v}`} />
                   <Tooltip 
                     content={({ active, payload, label }) => {
                       if (active && payload && payload.length) {
@@ -544,7 +733,7 @@ export default function Donations() {
             transition={{ delay: 0.3 }}
             className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
           >
-            <h3 className="text-lg font-serif font-bold text-stone-800 mb-4">Fund Distribution</h3>
+            <h3 className="text-lg font-serif font-bold text-stone-800 mb-4">Category Distribution</h3>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPie>
@@ -619,10 +808,10 @@ export default function Donations() {
                     value={selectedFund}
                     onChange={(e) => setSelectedFund(e.target.value)}
                     className="appearance-none pl-4 pr-8 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                    aria-label="Filter by fund"
+                    aria-label="Filter by category"
                   >
-                    <option value="all">All Funds</option>
-                    {fundOptions.map(opt => (
+                    <option value="all">All Categories</option>
+                    {donationCategoryOptions.map(opt => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
@@ -643,10 +832,35 @@ export default function Donations() {
                   <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                 </div>
               </div>
+              {/* Date Preset Quick Filters */}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-sm text-stone-600 mr-2">Quick Filter:</span>
+                {[
+                  { key: 'all', label: 'All Time', icon: CalendarDays },
+                  { key: 'today', label: 'Today', icon: CalendarCheck },
+                  { key: 'week', label: 'This Week', icon: CalendarClock },
+                  { key: 'month', label: 'This Month', icon: Calendar },
+                  { key: 'year', label: 'This Year', icon: CalendarRange },
+                ].map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleDatePresetChange(key as any)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      datePreset === key
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              
               <div className="flex flex-col lg:flex-row gap-4 items-center">
                 <div className="flex items-center gap-2 text-sm text-stone-600">
                   <Calendar className="w-4 h-4" />
-                  <span>Date Range:</span>
+                  <span>Custom Range:</span>
                 </div>
                 <div className="flex flex-col lg:flex-row gap-4 flex-1">
                   <div className="relative flex-1">
@@ -654,7 +868,10 @@ export default function Donations() {
                       type="date"
                       placeholder="Start date"
                       value={dateRange.startDate}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                      onChange={(e) => {
+                        setDateRange(prev => ({ ...prev, startDate: e.target.value }));
+                        if (datePreset !== 'custom') setDatePreset('custom');
+                      }}
                       className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                       aria-label="Start date"
                     />
@@ -664,16 +881,19 @@ export default function Donations() {
                       type="date"
                       placeholder="End date"
                       value={dateRange.endDate}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                      onChange={(e) => {
+                        setDateRange(prev => ({ ...prev, endDate: e.target.value }));
+                        if (datePreset !== 'custom') setDatePreset('custom');
+                      }}
                       className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                       aria-label="End date"
                     />
                   </div>
                   <button
-                    onClick={() => setDateRange({ startDate: '', endDate: '' })}
+                    onClick={() => handleDatePresetChange('all')}
                     className="px-4 py-2 text-sm text-stone-600 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors"
                   >
-                    Clear Dates
+                    Clear
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -721,7 +941,7 @@ export default function Donations() {
                   </th>
                   <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Donor</th>
                   <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Amount</th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Fund</th>
+                  <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Category</th>
                   <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Method</th>
                   <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Date</th>
                   <th className="text-left py-3 px-6 text-xs font-semibold text-stone-500 uppercase tracking-wider">Recurring</th>
@@ -733,14 +953,14 @@ export default function Donations() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center">
+                    <td colSpan={10} className="py-12 text-center">
                       <Loader2 className="w-8 h-8 animate-spin text-amber-500 mx-auto mb-2" />
                       <p className="text-stone-500 text-sm">Loading donations...</p>
                     </td>
                   </tr>
                 ) : filteredDonations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center">
+                    <td colSpan={10} className="py-12 text-center">
                       <p className="text-stone-500 text-sm">No donations found</p>
                     </td>
                   </tr>
@@ -780,11 +1000,13 @@ export default function Donations() {
                         <span className="font-semibold text-emerald-600">${donation.amount.toLocaleString()}</span>
                       </td>
                       <td className="py-3 px-6">
-                        <span className="text-sm text-stone-600">{donation.fundType}</span>
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${donationCategoryColors[donation.fundType as keyof typeof donationCategoryColors] || 'bg-stone-100 text-stone-700'}`}>
+                          {donation.fundType}
+                        </span>
                       </td>
                       <td className="py-3 px-6">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${donationMethodColors[donation.method as keyof typeof donationMethodColors] || 'bg-stone-100 text-stone-700'}`}>
-                          {donation.method}
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${donationMethodColors[donation.paymentMethod as keyof typeof donationMethodColors] || 'bg-stone-100 text-stone-700'}`}>
+                          {donation.paymentMethod}
                         </span>
                       </td>
                       <td className="py-3 px-6">
@@ -813,20 +1035,29 @@ export default function Donations() {
                             <RefreshCw className="w-4 h-4 text-stone-600" />
                           </button>
                           <a
-                            className="p-1.5 rounded-lg hover:bg-stone-100"
+                            className={`p-1.5 rounded-lg ${donation.donorEmail ? 'hover:bg-stone-100' : 'opacity-40 cursor-not-allowed'}`}
                             title="Email receipt"
                             href={donation.donorEmail ? `mailto:${donation.donorEmail}?subject=${encodeURIComponent(`Donation Receipt ${donation.receiptNumber || ''}`)}&body=${encodeURIComponent(generateReceiptText(donation))}` : undefined}
                             aria-disabled={!donation.donorEmail}
+                            onClick={(e) => {
+                              if (!donation.donorEmail) e.preventDefault();
+                            }}
                           >
                             <Mail className="w-4 h-4 text-stone-600" />
                           </a>
+                          <button
+                            className="p-1.5 rounded-lg hover:bg-emerald-50"
+                            title="Print receipt"
+                            onClick={() => openPrintReceipt(donation)}
+                          >
+                            <Printer className="w-4 h-4 text-emerald-600" />
+                          </button>
                           {canManageDonations && (
                             <button
                               className="p-1.5 rounded-lg hover:bg-rose-50"
                               title="Delete donation"
                               onClick={() => {
-                                setSelectedIds(new Set([donation.id]));
-                                deleteSelected();
+                                deleteSelected([donation.id]);
                               }}
                             >
                               <Trash2 className="w-4 h-4 text-rose-500" />
@@ -857,7 +1088,7 @@ export default function Donations() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6"
+                className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6"
               >
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-serif font-bold text-stone-800">Record Donation</h2>
@@ -886,6 +1117,28 @@ export default function Donations() {
                       ))}
                     </select>
                   </div>
+                  
+                  {/* Category Selection with Visual Cards */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">Category</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {donationCategoryOptions.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, category: cat })}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            formData.category === cat
+                              ? donationCategoryColors[cat as keyof typeof donationCategoryColors] || 'bg-amber-100 text-amber-700 ring-2 ring-amber-500'
+                              : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-stone-700 mb-1">Amount</label>
@@ -896,6 +1149,7 @@ export default function Donations() {
                           type="number" 
                           min="0.01"
                           step="0.01"
+                          placeholder="0.00"
                           value={formData.amount}
                           onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                           className="w-full pl-8 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30" 
@@ -913,32 +1167,44 @@ export default function Donations() {
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Fund</label>
-                    <select 
-                      required
-                      value={formData.fundType}
-                      onChange={(e) => setFormData({ ...formData, fundType: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30"
-                    >
-                      {fundOptions.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1">Payment Method</label>
+                      <select 
+                        required
+                        value={formData.paymentMethod}
+                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30"
+                      >
+                        {donationMethodOptions.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1">Reference (Optional)</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g., Check #1234"
+                        value={formData.reference}
+                        onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30" 
+                      />
+                    </div>
                   </div>
+                  
                   <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Payment Method</label>
-                    <select 
-                      required
-                      value={formData.method}
-                      onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30"
-                    >
-                      {donationMethodOptions.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Notes (Optional)</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Add any notes about this donation..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 resize-none" 
+                    />
                   </div>
+                  
                   <div className="flex items-center gap-2">
                     <input 
                       type="checkbox" 
@@ -973,6 +1239,122 @@ export default function Donations() {
           )}
         </AnimatePresence>
         
+        {/* Print Receipt Modal */}
+        <AnimatePresence>
+          {showPrintReceipt && receiptDonation && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowPrintReceipt(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl shadow-2xl max-w-md w-full"
+              >
+                {/* Printable Receipt Content */}
+                <div className="p-8 print:p-4" id="receipt-content">
+                  {/* Church Header */}
+                  <div className="text-center mb-6 border-b border-stone-200 pb-6">
+                    <h1 className="text-2xl font-serif font-bold text-stone-800">Greater Works City Church</h1>
+                    <p className="text-sm text-stone-500 mt-1">123 Faith Avenue, Greater Works City</p>
+                    <p className="text-sm text-stone-500">Tel: +233543871470</p>
+                  </div>
+
+                  {/* Receipt Title */}
+                  <div className="text-center mb-6">
+                    <h2 className="text-lg font-semibold text-stone-700 uppercase tracking-wide">Donation Receipt</h2>
+                  </div>
+
+                  {/* Receipt Details */}
+                  <div className="space-y-4 mb-6">
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                      <span className="text-sm text-stone-500">Receipt No:</span>
+                      <span className="text-sm font-semibold text-stone-800">{receiptDonation.receiptNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                      <span className="text-sm text-stone-500">Date:</span>
+                      <span className="text-sm font-semibold text-stone-800">{new Date(receiptDonation.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                      <span className="text-sm text-stone-500">Donor:</span>
+                      <span className="text-sm font-semibold text-stone-800">{receiptDonation.donorName || 'Anonymous'}</span>
+                    </div>
+                    {receiptDonation.donorEmail && (
+                      <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                        <span className="text-sm text-stone-500">Email:</span>
+                        <span className="text-sm text-stone-800">{receiptDonation.donorEmail}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                      <span className="text-sm text-stone-500">Category:</span>
+                      <span className="text-sm font-semibold text-stone-800">{receiptDonation.fundType}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                      <span className="text-sm text-stone-500">Payment Method:</span>
+                      <span className="text-sm text-stone-800">{receiptDonation.paymentMethod}</span>
+                    </div>
+                    {receiptDonation.reference && (
+                      <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                        <span className="text-sm text-stone-500">Reference:</span>
+                        <span className="text-sm text-stone-800">{receiptDonation.reference}</span>
+                      </div>
+                    )}
+                    {receiptDonation.isRecurring && (
+                      <div className="flex justify-between items-center py-2 border-b border-dashed border-stone-200">
+                        <span className="text-sm text-stone-500">Recurring:</span>
+                        <span className="text-sm text-blue-600 font-medium">Yes</span>
+                      </div>
+                    )}
+                    {receiptDonation.notes && (
+                      <div className="py-2">
+                        <span className="text-sm text-stone-500">Notes:</span>
+                        <p className="text-sm text-stone-700 mt-1">{receiptDonation.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Amount Section */}
+                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-stone-700">Amount</span>
+                      <span className="text-2xl font-bold text-emerald-600">${Number(receiptDonation.amount).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="text-center text-xs text-stone-400 border-t border-stone-200 pt-4">
+                    <p>Thank you for your generous contribution!</p>
+                    <p className="mt-1">This receipt is for your records and may be used for tax purposes.</p>
+                    <p className="mt-2 text-stone-500">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                </div>
+
+                {/* Action Buttons - Hidden when printing */}
+                <div className="flex gap-3 p-4 border-t border-stone-100 print:hidden">
+                  <button
+                    onClick={() => setShowPrintReceipt(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-medium hover:bg-stone-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button 
+                    onClick={handlePrint}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-shadow flex items-center justify-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print Receipt
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Donor Profile Modal */}
         <AnimatePresence>
           {showDonorModal && donorProfile && (
@@ -1022,7 +1404,7 @@ export default function Donations() {
                           <td className="py-2 px-4 text-sm text-stone-700">{new Date(d.date).toLocaleDateString()}</td>
                           <td className="py-2 px-4 text-sm text-stone-700">${Number(d.amount).toLocaleString()}</td>
                           <td className="py-2 px-4 text-sm text-stone-700">{d.fundType}</td>
-                          <td className="py-2 px-4 text-sm text-stone-700">{d.method}</td>
+                          <td className="py-2 px-4 text-sm text-stone-700">{d.paymentMethod}</td>
                         </tr>
                       ))}
                       {donorHistory.length === 0 && (

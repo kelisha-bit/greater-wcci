@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS donations (
   payment_method TEXT CHECK (payment_method IN ('cash', 'check', 'card', 'online', 'bank_transfer', 'other')) DEFAULT 'cash',
   payment_reference TEXT, -- Check number, transaction ID, etc.
 
-  fund_type TEXT CHECK (fund_type IN ('general', 'building', 'missions', 'benevolence', 'youth', 'children', 'music', 'other')) DEFAULT 'general',
+  fund_type TEXT CHECK (fund_type IN ('tithes', 'offering', 'thanksgiving', 'prophetic_seed', 'building', 'missions', 'special_project', 'other')) DEFAULT 'offering',
   is_recurring BOOLEAN DEFAULT FALSE,
   recurring_frequency TEXT CHECK (recurring_frequency IN ('weekly', 'monthly', 'quarterly', 'yearly')),
 

@@ -7,6 +7,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { supabaseApi } from './supabaseApi';
+import { supabase } from './supabaseClient';
 import { daysBetweenCalendarDates, getNextBirthdayDate } from '../utils/helpers';
 
 /** User-facing text when PostgREST returns 403 + Postgres 42501 (RLS). */
@@ -17,6 +18,14 @@ function formatSupabaseAccessError(error: unknown, fallback: string): string {
       : null;
   const code = rec?.code;
   const message = rec?.message ?? (error instanceof Error ? error.message : '');
+
+  // Handle duplicate key constraint violations (unique constraint errors)
+  if (code === '23505') {
+    if (/members_email_key/i.test(message)) {
+      return 'A member with this email address already exists. Please use a different email address.';
+    }
+    return 'This record already exists. Please check your input and try again.';
+  }
 
   if (
     code === '42501' ||
@@ -80,6 +89,19 @@ export interface Member {
   profileImageUrl?: string;
   address?: string;
   createdAt?: string;
+  ministries?: MemberMinistryLink[];
+}
+
+export interface MemberCreateInput extends Omit<Member, 'id' | 'ministries'> {
+  ministryInvolvement?: string[];
+}
+
+export interface MemberMinistryLink {
+  id: string;
+  ministryId: string;
+  ministryName: string;
+  role: 'leader' | 'member' | 'volunteer';
+  joinedDate: string;
 }
 
 export interface UpcomingBirthday {
@@ -125,7 +147,7 @@ export interface Donation {
   donorEmail?: string;
   amount: number;
   date: string;
-  method: string;
+  paymentMethod: string;
   fundType: string;
   isRecurring: boolean;
   recurringFrequency?: string;
@@ -163,6 +185,26 @@ export interface Report {
   generatedDate: string;
   period: string;
   data: Record<string, unknown>;
+}
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  category: string;
+  paymentMethod: string;
+  paymentReference?: string;
+  vendorName?: string;
+  vendorContact?: string;
+  budgetCategory?: string;
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  receiptUrl?: string;
+  notes?: string;
+  isRecurring: boolean;
+  recurringFrequency?: string;
 }
 
 export interface Settings {
@@ -230,12 +272,13 @@ export const membersApi = {
   /**
    * Fetch all members with pagination
    */
-  async getMembers(page = 1, pageSize = 10): Promise<PaginatedResponse<Member>> {
+  async getMembers(page = 1, pageSize = 10, status?: string): Promise<PaginatedResponse<Member>> {
     try {
       const offset = (page - 1) * pageSize;
       const { data, count } = await supabaseApi.members.getMembers({
         limit: pageSize,
         offset,
+        status,
       });
 
       const members: Member[] = data.map(transformMemberRow);
@@ -267,7 +310,8 @@ export const membersApi = {
   async getMember(id: string): Promise<ApiResponse<Member>> {
     try {
       const member = await supabaseApi.members.getMember(id);
-      return { success: true, data: transformMemberRow(member) };
+      const memberMinistries = await supabaseApi.ministries.getMemberMinistries(id);
+      return { success: true, data: { ...transformMemberRow(member), ministries: memberMinistries } };
     } catch (error) {
       console.error(`Failed to fetch member ${id}:`, error);
       return {
@@ -294,9 +338,30 @@ export const membersApi = {
   },
 
   /**
+   * Check if email already exists
+   */
+  async checkEmailExists(email: string): Promise<ApiResponse<boolean>> {
+    try {
+      const { count, error } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('email', email.trim().toLowerCase());
+
+      if (error) throw error;
+      return { success: true, data: (count ?? 0) > 0 };
+    } catch (error) {
+      console.error('Failed to check email existence:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check email',
+      };
+    }
+  },
+
+  /**
    * Create new member
    */
-  async createMember(member: Omit<Member, 'id'>): Promise<ApiResponse<Member>> {
+  async createMember(member: MemberCreateInput): Promise<ApiResponse<Member>> {
     try {
       // Transform the input to match Supabase schema
       const membershipStatus = member.status === 'new' ? 'visitor' : member.status;
@@ -322,6 +387,32 @@ export const membersApi = {
       };
 
       const data = await supabaseApi.members.createMember(memberInsert);
+
+      const involvementNames = Array.from(
+        new Set([
+          ...(member.ministryInvolvement || []),
+          ...(member.primaryMinistry ? [member.primaryMinistry] : []),
+        ].filter(Boolean))
+      );
+
+      if (involvementNames.length) {
+        const ministries = await supabaseApi.ministries.getMinistriesByNames(involvementNames);
+        const ministryMap = new Map(ministries.map((m) => [m.name, m.id]));
+
+        await Promise.all(
+          involvementNames
+            .map((name) => ministryMap.get(name))
+            .filter((id): id is string => Boolean(id))
+            .map((ministryId) =>
+              supabaseApi.ministries.addMemberToMinistry({
+                memberId: data.id,
+                ministryId,
+                role: 'member',
+              })
+            )
+        );
+      }
+
       return { success: true, data: transformMemberRow(data) };
     } catch (error) {
       console.error(
@@ -1150,16 +1241,42 @@ export const attendanceApi = {
  * Transform database row to Donation interface
  */
 function transformDonationRow(row: any): Donation {
-  // Map database fund slugs back to display labels
-  const fundMap: Record<string, string> = {
-    'general': 'General Fund',
-    'building': 'Building Fund',
-    'missions': 'Missions',
-    'youth': 'Youth Ministry',
-    'children': 'Children\'s Ministry',
-    'benevolence': 'Benevolence',
-    'music': 'Music Ministry',
-    'other': 'Other',
+  // Smart categorization based on context and existing data
+  const getFundCategory = (fundType: string, notes: string = ''): string => {
+    // New categories (now supported after migration - case-insensitive match)
+    const normalizedFund = fundType.toLowerCase();
+    if (normalizedFund === 'tithes') return 'Tithes';
+    if (normalizedFund === 'offering') return 'Offering';
+    if (normalizedFund === 'thanksgiving') return 'Thanksgiving';
+    if (normalizedFund === 'prophetic_seed' || normalizedFund === 'prophetic seed') return 'Prophetic Seed';
+    if (normalizedFund === 'special_project' || normalizedFund === 'special project') return 'Special Project';
+    if (normalizedFund === 'wednesday_service' || normalizedFund === 'wednesday service') return 'Wednesday Service';
+    if (normalizedFund === 'conference') return 'Conference';
+    
+    // Existing database mappings
+    if (normalizedFund === 'building' || normalizedFund === 'building fund') return 'Building Fund';
+    if (normalizedFund === 'missions') return 'Missions';
+    
+    // Smart categorization for legacy data
+    if (normalizedFund === 'general') {
+      // Check notes for category clues
+      const lowerNotes = notes.toLowerCase();
+      if (lowerNotes.includes('tithe') || lowerNotes.includes('tithes')) return 'Tithes';
+      if (lowerNotes.includes('thank') || lowerNotes.includes('thanksgiving')) return 'Thanksgiving';
+      if (lowerNotes.includes('prophetic') || lowerNotes.includes('seed')) return 'Prophetic Seed';
+      if (lowerNotes.includes('building') || lowerNotes.includes('project')) return 'Building Fund';
+      
+      // Default to Offering for general
+      return 'Offering';
+    }
+    
+    // Other legacy types
+    if (['youth', 'children', 'benevolence', 'music'].includes(normalizedFund)) {
+      return 'Offering';
+    }
+    
+    // Default for 'other' or unknown
+    return 'Others';
   };
 
   // Map database payment method slugs back to display labels
@@ -1179,8 +1296,8 @@ function transformDonationRow(row: any): Donation {
     donorEmail: row.donor_email || undefined,
     amount: Number(row.amount),
     date: row.donation_date,
-    method: methodMap[row.payment_method] || row.payment_method || 'Other',
-    fundType: fundMap[row.fund_type] || row.fund_type || 'General Fund',
+    paymentMethod: methodMap[row.payment_method] || row.payment_method || 'Other',
+    fundType: getFundCategory(row.fund_type, row.notes || ''),
     isRecurring: row.is_recurring || false,
     recurringFrequency: row.recurring_frequency || undefined,
     notes: row.notes || '',
@@ -1194,14 +1311,24 @@ function transformDonationRow(row: any): Donation {
  */
 function mapDonationToDb(donation: Partial<Donation>): any {
   const fundMap: Record<string, string> = {
-    'General Fund': 'general',
-    'Building Fund': 'building',
-    'Missions': 'missions',
-    'Youth Ministry': 'youth',
-    'Children\'s Ministry': 'children',
-    'Benevolence': 'benevolence',
-    'Music Ministry': 'music',
-    'Other': 'other',
+    // New categories (now supported after migration - mapping to Title Case in DB)
+    'Tithes': 'Tithes',
+    'Offering': 'Offering',
+    'Thanksgiving': 'Thanksgiving',
+    'Prophetic Seed': 'Prophetic Seed',
+    'Building Fund': 'Building Fund',
+    'Missions': 'Missions',
+    'Special Project': 'Special Project',
+    'Wednesday Service': 'Wednesday Service',
+    'Conference': 'Conference',
+    'Others': 'Others',
+    'Other': 'Others',
+    // Legacy mappings for backward compatibility
+    'General Fund': 'Offering',
+    'Youth Ministry': 'Offering',
+    'Children\'s Ministry': 'Offering',
+    'Benevolence': 'Offering',
+    'Music Ministry': 'Offering',
   };
 
   const methodMap: Record<string, string> = {
@@ -1219,8 +1346,8 @@ function mapDonationToDb(donation: Partial<Donation>): any {
   if (donation.donorEmail) dbObj.donor_email = donation.donorEmail;
   if (donation.amount) dbObj.amount = donation.amount;
   if (donation.date) dbObj.donation_date = donation.date;
-  if (donation.method) dbObj.payment_method = methodMap[donation.method] || donation.method.toLowerCase();
-  if (donation.fundType) dbObj.fund_type = fundMap[donation.fundType] || donation.fundType.toLowerCase();
+  if (donation.paymentMethod) dbObj.payment_method = methodMap[donation.paymentMethod] || 'other';
+  if (donation.fundType) dbObj.fund_type = fundMap[donation.fundType] || 'offering';
   if (donation.isRecurring !== undefined) dbObj.is_recurring = donation.isRecurring;
   if (donation.recurringFrequency) dbObj.recurring_frequency = donation.recurringFrequency.toLowerCase();
   if (donation.notes) dbObj.notes = donation.notes;
@@ -1237,7 +1364,7 @@ export const donationsApi = {
   async getDonations(options?: {
     donorId?: string;
     fundType?: string;
-    method?: string;
+    paymentMethod?: string;
     dateFrom?: string;
     dateTo?: string;
     amountMin?: number;
@@ -1250,13 +1377,22 @@ export const donationsApi = {
       const pageSize = options?.pageSize || 10;
       const offset = (page - 1) * pageSize;
 
-      // Map fundType if provided
+      // Map fundType if provided (backward compatibility and case mapping)
       const fundMap: Record<string, string> = {
-        'General Fund': 'general',
-        'Building Fund': 'building',
-        'Missions': 'missions',
-        'Youth Ministry': 'youth',
-        'Children\'s Ministry': 'children',
+        'General Fund': 'Offering',
+        'Building Fund': 'Building Fund',
+        'Missions': 'Missions',
+        'Youth Ministry': 'Offering',
+        'Children\'s Ministry': 'Offering',
+        'Tithes': 'Tithes',
+        'Offering': 'Offering',
+        'Thanksgiving': 'Thanksgiving',
+        'Prophetic Seed': 'Prophetic Seed',
+        'Special Project': 'Special Project',
+        'Wednesday Service': 'Wednesday Service',
+        'Conference': 'Conference',
+        'Others': 'Others',
+        'Other': 'Others',
       };
       const methodMap: Record<string, string> = {
         'Online': 'online',
@@ -1269,8 +1405,8 @@ export const donationsApi = {
       
       const queryOptions = {
         ...options,
-        fundType: options?.fundType ? (fundMap[options.fundType] || options.fundType.toLowerCase()) : undefined,
-        method: options?.method ? (methodMap[options.method] || options.method.toLowerCase()) : undefined,
+        fundType: options?.fundType ? (fundMap[options.fundType] || options.fundType) : undefined,
+        paymentMethod: options?.paymentMethod ? (methodMap[options.paymentMethod] || options.paymentMethod.toLowerCase()) : undefined,
         limit: pageSize,
         offset,
       };
@@ -2040,6 +2176,271 @@ export const ministriesApi = {
 };
 
 // ============================================================================
+// EXPENSES API
+// ============================================================================
+
+/**
+ * Transform database row to Expense interface
+ */
+function transformExpenseRow(row: any): Expense {
+  return {
+    id: row.id,
+    description: row.description,
+    amount: Number(row.amount),
+    date: row.expense_date,
+    category: row.category,
+    paymentMethod: row.payment_method,
+    paymentReference: row.payment_reference,
+    vendorName: row.vendor_name,
+    vendorContact: row.vendor_contact,
+    budgetCategory: row.budget_category,
+    isApproved: row.is_approved,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    receiptUrl: row.receipt_url,
+    notes: row.notes,
+    isRecurring: row.is_recurring || false,
+    recurringFrequency: row.recurring_frequency,
+  };
+}
+
+export const expensesApi = {
+  /**
+   * Fetch expense records
+   */
+  async getExpenses(options?: {
+    category?: string;
+    vendorName?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    amountMin?: number;
+    amountMax?: number;
+    isApproved?: boolean;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<PaginatedResponse<Expense>> {
+    try {
+      const page = options?.page || 1;
+      const pageSize = options?.pageSize || 10;
+      const offset = (page - 1) * pageSize;
+
+      const { data, count } = await supabaseApi.expenses.getExpenses({
+        ...options,
+        limit: pageSize,
+        offset,
+      });
+
+      return {
+        success: true,
+        data: data.map(transformExpenseRow),
+        total: count,
+        page,
+        pageSize,
+        totalPages: Math.ceil(count / pageSize),
+      };
+    } catch (error) {
+      console.error('Failed to fetch expenses:', error);
+      return {
+        success: false,
+        total: 0,
+        page: options?.page || 1,
+        pageSize: options?.pageSize || 10,
+        totalPages: 0,
+        error: error instanceof Error ? error.message : 'Failed to fetch expenses',
+      };
+    }
+  },
+
+  /**
+   * Create expense record
+   */
+  async createExpense(expense: Omit<Expense, 'id'>): Promise<ApiResponse<Expense>> {
+    try {
+      const created = await supabaseApi.expenses.createExpense({
+        description: expense.description,
+        amount: expense.amount,
+        expense_date: expense.date,
+        category: expense.category,
+        payment_method: expense.paymentMethod,
+        payment_reference: expense.paymentReference,
+        vendor_name: expense.vendorName,
+        vendor_contact: expense.vendorContact,
+        budget_category: expense.budgetCategory,
+        is_approved: expense.isApproved,
+        notes: expense.notes,
+        is_recurring: expense.isRecurring,
+        recurring_frequency: expense.recurringFrequency,
+        receipt_url: expense.receiptUrl,
+      });
+      
+      const transformed = transformExpenseRow(created);
+      
+      // Attempt audit log
+      try {
+        await supabaseApi.audit.insert({
+          table_name: 'expenses',
+          record_id: created.id,
+          action: 'INSERT',
+          old_values: null,
+          new_values: created,
+          changed_fields: null,
+        });
+      } catch (auditErr) {
+        console.warn('Audit log insert failed:', auditErr);
+      }
+      
+      return { success: true, data: transformed };
+    } catch (error) {
+      console.error('Failed to create expense:', error);
+      return {
+        success: false,
+        error: formatSupabaseAccessError(error, 'Failed to create expense'),
+      };
+    }
+  },
+
+  /**
+   * Update expense record
+   */
+  async updateExpense(id: string, expense: Partial<Expense>): Promise<ApiResponse<Expense>> {
+    try {
+      let oldRow: any = null;
+      try {
+        oldRow = await supabaseApi.expenses.getExpense(id);
+      } catch (e) {
+        // ignore fetch error for audit
+      }
+      
+      const updates: any = {};
+      if (expense.description) updates.description = expense.description;
+      if (expense.amount !== undefined) updates.amount = expense.amount;
+      if (expense.date) updates.expense_date = expense.date;
+      if (expense.category) updates.category = expense.category;
+      if (expense.paymentMethod) updates.payment_method = expense.paymentMethod;
+      if (expense.paymentReference !== undefined) updates.payment_reference = expense.paymentReference;
+      if (expense.vendorName !== undefined) updates.vendor_name = expense.vendorName;
+      if (expense.vendorContact !== undefined) updates.vendor_contact = expense.vendorContact;
+      if (expense.budgetCategory !== undefined) updates.budget_category = expense.budgetCategory;
+      if (expense.isApproved !== undefined) updates.is_approved = expense.isApproved;
+      if (expense.notes !== undefined) updates.notes = expense.notes;
+      if (expense.isRecurring !== undefined) updates.is_recurring = expense.isRecurring;
+      if (expense.recurringFrequency) updates.recurring_frequency = expense.recurringFrequency;
+      if (expense.receiptUrl !== undefined) updates.receipt_url = expense.receiptUrl;
+      
+      const updated = await supabaseApi.expenses.updateExpense(id, updates);
+      const transformed = transformExpenseRow(updated);
+      
+      // Attempt audit log
+      try {
+        const changedFields =
+          oldRow && updated
+            ? Object.keys(updated as any).filter((k) => JSON.stringify((oldRow as any)?.[k]) !== JSON.stringify((updated as any)?.[k]))
+            : null;
+        await supabaseApi.audit.insert({
+          table_name: 'expenses',
+          record_id: id,
+          action: 'UPDATE',
+          old_values: oldRow,
+          new_values: updated,
+          changed_fields: changedFields && changedFields.length > 0 ? changedFields : null,
+        });
+      } catch (auditErr) {
+        console.warn('Audit log insert failed:', auditErr);
+      }
+      
+      return { success: true, data: transformed };
+    } catch (error) {
+      console.error(`Failed to update expense ${id}:`, error);
+      return {
+        success: false,
+        error: formatSupabaseAccessError(error, 'Failed to update expense'),
+      };
+    }
+  },
+
+  /**
+   * Delete expense record
+   */
+  async deleteExpense(id: string): Promise<ApiResponse<void>> {
+    try {
+      let oldRow: any = null;
+      try {
+        oldRow = await supabaseApi.expenses.getExpense(id);
+      } catch (e) {
+        // ignore fetch error for audit
+      }
+      
+      await supabaseApi.expenses.deleteExpense(id);
+      
+      // Attempt audit log
+      try {
+        await supabaseApi.audit.insert({
+          table_name: 'expenses',
+          record_id: id,
+          action: 'DELETE',
+          old_values: oldRow,
+          new_values: null,
+          changed_fields: null,
+        });
+      } catch (auditErr) {
+        console.warn('Audit log insert failed:', auditErr);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error(`Failed to delete expense ${id}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete expense',
+      };
+    }
+  },
+
+  /**
+   * Approve expense
+   */
+  async approveExpense(id: string): Promise<ApiResponse<Expense>> {
+    try {
+      const approved = await supabaseApi.expenses.approveExpense(id);
+      const transformed = transformExpenseRow(approved);
+      return { success: true, data: transformed };
+    } catch (error) {
+      console.error(`Failed to approve expense ${id}:`, error);
+      return {
+        success: false,
+        error: formatSupabaseAccessError(error, 'Failed to approve expense'),
+      };
+    }
+  },
+
+  /**
+   * Get expense statistics
+   */
+  async getExpenseStats(options?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<ApiResponse<{
+    totalExpenses: number;
+    approvedExpenses: number;
+    pendingExpenses: number;
+    categoryTotals: Record<string, number>;
+    expenseCount: number;
+  }>> {
+    try {
+      const stats = await supabaseApi.expenses.getExpenseStats(options);
+      return { success: true, data: stats };
+    } catch (error) {
+      console.error('Failed to fetch expense stats:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch expense statistics',
+      };
+    }
+  },
+};
+
+// ============================================================================
 // EXPORT API NAMESPACE
 // ============================================================================
 
@@ -2054,6 +2455,7 @@ export const api = {
   reports: reportsApi,
   settings: settingsApi,
   auth: authApi,
+  expenses: expensesApi,
 };
 
 export default api;

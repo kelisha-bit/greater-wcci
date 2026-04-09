@@ -33,3 +33,11 @@ CREATE POLICY "Members can be inserted by staff and admins" ON public.members
 DROP POLICY IF EXISTS "Members can be updated by staff and admins" ON public.members;
 CREATE POLICY "Members can be updated by staff and admins" ON public.members
   FOR UPDATE USING (public.is_staff_or_admin());
+
+DROP POLICY IF EXISTS "Members can be deleted by staff and admins" ON public.members;
+CREATE POLICY "Members can be deleted by staff and admins" ON public.members
+  FOR DELETE USING (public.is_staff_or_admin());
+
+DROP POLICY IF EXISTS "Members can be viewed by authenticated users" ON public.members;
+CREATE POLICY "Members can be viewed by authenticated users" ON public.members
+  FOR SELECT USING (TRUE);

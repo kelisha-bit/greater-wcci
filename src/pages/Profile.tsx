@@ -276,6 +276,34 @@ export default function Profile() {
                 </div>
               </div>
             </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50"
+            >
+              <h3 className="text-lg font-semibold text-stone-800 mb-4">Ministry Participation</h3>
+              {memberProfile?.ministries?.length ? (
+                <div className="space-y-3">
+                  {memberProfile.ministries.map((link) => (
+                    <div
+                      key={link.id}
+                      className="rounded-2xl border border-stone-200/50 bg-stone-50 p-4"
+                    >
+                      <p className="text-sm font-semibold text-stone-800">
+                        {link.ministryName || 'Unknown ministry'}
+                      </p>
+                      <p className="text-xs text-stone-500 mt-1">
+                        {link.role.charAt(0).toUpperCase() + link.role.slice(1)} • Joined {new Date(link.joinedDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500">This member is not linked to any ministries yet.</p>
+              )}
+            </motion.div>
           </div>
         </div>
       </main>

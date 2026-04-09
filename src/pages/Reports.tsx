@@ -10,6 +10,13 @@ import {
   Church,
   Heart,
   Loader2,
+  Calendar,
+  Repeat,
+  PiggyBank,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart3,
+  Receipt,
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -19,6 +26,8 @@ import {
   donationsApi,
   ministriesApi,
   reportsApi,
+  eventsApi,
+  expensesApi,
   type Donation,
   type Report,
 } from '../services/api';
@@ -186,6 +195,114 @@ function iconForReportType(type: string) {
   }
 }
 
+// Fund type colors for charts
+const FUND_COLORS: Record<string, string> = {
+  'General Fund': '#10b981',
+  'Building Fund': '#3b82f6',
+  'Missions': '#f59e0b',
+  'Youth Ministry': '#8b5cf6',
+  "Children's Ministry": '#ec4899',
+  'Benevolence': '#ef4444',
+  'Music Ministry': '#06b6d4',
+  'Other': '#78716c',
+};
+
+function processFinanceBreakdown(
+  donations: Donation[],
+  total: number,
+  setFund: (v: { name: string; amount: number; color: string }[]) => void,
+  setPayment: (v: { name: string; amount: number; count: number }[]) => void,
+  setRecurring: (v: { total: number; count: number; percentage: number }) => void,
+  setAvg: (v: number) => void,
+  setCount: (v: number) => void,
+  setTopDonors: (v: { name: string; amount: number; count: number }[]) => void
+) {
+  // Fund breakdown
+  const fundMap = new Map<string, number>();
+  for (const d of donations) {
+    const fund = d.fundType || 'General Fund';
+    fundMap.set(fund, (fundMap.get(fund) || 0) + Number(d.amount));
+  }
+  const fundData = Array.from(fundMap.entries())
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      color: FUND_COLORS[name] || '#78716c',
+    }))
+    .sort((a, b) => b.amount - a.amount);
+  setFund(fundData);
+
+  // Payment method breakdown
+  const paymentMap = new Map<string, { amount: number; count: number }>();
+  for (const d of donations) {
+    const method = d.paymentMethod || 'Other';
+    const existing = paymentMap.get(method) || { amount: 0, count: 0 };
+    paymentMap.set(method, {
+      amount: existing.amount + Number(d.amount),
+      count: existing.count + 1,
+    });
+  }
+  const paymentData = Array.from(paymentMap.entries())
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.amount - a.amount);
+  setPayment(paymentData);
+
+  // Recurring donations
+  const recurringDonations = donations.filter((d) => d.isRecurring);
+  const recurringTotal = recurringDonations.reduce((s, d) => s + Number(d.amount), 0);
+  setRecurring({
+    total: recurringTotal,
+    count: recurringDonations.length,
+    percentage: total > 0 ? Math.round((recurringTotal / total) * 100) : 0,
+  });
+
+  // Average donation and count
+  const count = donations.length;
+  const avg = count > 0 ? Math.round(total / count) : 0;
+  setAvg(avg);
+  setCount(count);
+
+  // Top donors
+  const donorMap = new Map<string, { amount: number; count: number }>();
+  for (const d of donations) {
+    const key = d.donorName || d.donorEmail || 'Anonymous';
+    const existing = donorMap.get(key) || { amount: 0, count: 0 };
+    donorMap.set(key, {
+      amount: existing.amount + Number(d.amount),
+      count: existing.count + 1,
+    });
+  }
+  const topDonorsList = Array.from(donorMap.entries())
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+  setTopDonors(topDonorsList);
+}
+
+function processEventsStats(
+  events: { event_date?: string; status?: string }[],
+  currFrom: string,
+  currTo: string,
+  prevFrom: string,
+  prevTo: string,
+  setCount: (v: number) => void,
+  setPrevCount: (v: number) => void,
+  setCompleted: (v: number) => void
+) {
+  const curr = events.filter((e) => {
+    const d = e.event_date;
+    return d && d >= currFrom && d <= currTo;
+  });
+  const prev = events.filter((e) => {
+    const d = e.event_date;
+    return d && d >= prevFrom && d <= prevTo;
+  });
+  const completed = events.filter((e) => e.status === 'completed');
+  setCount(curr.length);
+  setPrevCount(prev.length);
+  setCompleted(completed.length);
+}
+
 export default function Reports() {
   const [dateRange, setDateRange] = useState<DateRangeKey>('year');
   const [loading, setLoading] = useState(true);
@@ -199,6 +316,30 @@ export default function Reports() {
   const [givingTotal, setGivingTotal] = useState(0);
   const [givingPrev, setGivingPrev] = useState(0);
   const [ministryLinks, setMinistryLinks] = useState(0);
+
+  // New finance metrics
+  const [fundBreakdown, setFundBreakdown] = useState<{ name: string; amount: number; color: string }[]>([]);
+  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<{ name: string; amount: number; count: number }[]>([]);
+  const [recurringStats, setRecurringStats] = useState<{ total: number; count: number; percentage: number }>({ total: 0, count: 0, percentage: 0 });
+  const [avgDonation, setAvgDonation] = useState(0);
+  const [donationCount, setDonationCount] = useState(0);
+  const [topDonors, setTopDonors] = useState<{ name: string; amount: number; count: number }[]>([]);
+
+  // Event metrics
+  const [eventsCount, setEventsCount] = useState(0);
+  const [eventsPrevCount, setEventsPrevCount] = useState(0);
+  const [completedEvents, setCompletedEvents] = useState(0);
+
+  // Expense metrics
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  const [expenseApproved, setExpenseApproved] = useState(0);
+  const [expensePending, setExpensePending] = useState(0);
+  const [expenseCount, setExpenseCount] = useState(0);
+  const [_expenseCategoryTotals, _setExpenseCategoryTotals] = useState<Record<string, number>>({});
+
+  // Member status breakdown
+  const [memberStatusBreakdown, setMemberStatusBreakdown] = useState<{ name: string; value: number; color: string }[]>([]);
+
 
   const [attendanceTrend, setAttendanceTrend] = useState<
     { name: string; attendance: number; visitors: number }[]
@@ -231,6 +372,7 @@ export default function Reports() {
         demoRes,
         minRes,
         reportsRes,
+        eventsRes,
       ] = await Promise.all([
         membersApi.getMemberStats(),
         membersApi.countJoinedBetween(current.from, current.to),
@@ -251,6 +393,7 @@ export default function Reports() {
         membersApi.getAgeDemographics(),
         ministriesApi.listWithMemberCounts(),
         reportsApi.getReports({ limit: 12 }),
+        eventsApi.getEvents({ limit: 1000 }),
       ]);
 
       if (!memberStatsRes.success || memberStatsRes.data == null) {
@@ -268,6 +411,56 @@ export default function Reports() {
       const prevTotal = sumDonations(donationsPrevRes.data);
       setGivingTotal(currTotal);
       setGivingPrev(prevTotal);
+
+      // Process finance breakdown from current donations
+      const currDonations = donationsCurrRes.data ?? [];
+      processFinanceBreakdown(
+        currDonations,
+        currTotal,
+        setFundBreakdown,
+        setPaymentMethodBreakdown,
+        setRecurringStats,
+        setAvgDonation,
+        setDonationCount,
+        setTopDonors
+      );
+
+      // Process events stats
+      processEventsStats(
+        eventsRes.data ?? [],
+        current.from,
+        current.to,
+        previous.from,
+        previous.to,
+        setEventsCount,
+        setEventsPrevCount,
+        setCompletedEvents
+      );
+
+      // Fetch expense stats
+      try {
+        const expenseStatsRes = await expensesApi.getExpenseStats({
+          dateFrom: current.from,
+          dateTo: current.to,
+        });
+        if (expenseStatsRes.success && expenseStatsRes.data) {
+          setExpenseTotal(expenseStatsRes.data.totalExpenses);
+          setExpenseApproved(expenseStatsRes.data.approvedExpenses);
+          setExpensePending(expenseStatsRes.data.pendingExpenses);
+          setExpenseCount(expenseStatsRes.data.expenseCount);
+          _setExpenseCategoryTotals(expenseStatsRes.data.categoryTotals);
+        }
+      } catch (expenseErr) {
+        console.warn('Failed to fetch expense stats:', expenseErr);
+      }
+
+      // Member status breakdown
+      setMemberStatusBreakdown([
+        { name: 'Active', value: memberStatsRes.data.activeMembers, color: '#10b981' },
+        { name: 'Visitors', value: memberStatsRes.data.visitorCount, color: '#f59e0b' },
+        { name: 'New This Month', value: memberStatsRes.data.newThisMonth, color: '#3b82f6' },
+        { name: 'Inactive', value: Math.max(0, memberStatsRes.data.totalMembers - memberStatsRes.data.activeMembers - memberStatsRes.data.visitorCount), color: '#ef4444' },
+      ]);
 
       const trend =
         trendRes.success && trendRes.data?.length
@@ -814,6 +1007,385 @@ export default function Reports() {
                       })
                     )}
                   </div>
+                </motion.div>
+              </div>
+
+              {/* Finance Section */}
+              <div className="mb-6">
+                <h2 className="text-xl font-serif font-bold text-stone-800 mb-4 flex items-center gap-2">
+                  <PiggyBank className="w-5 h-5 text-emerald-600" />
+                  Finance Breakdown
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Total Donations</p>
+                        <p className="text-xl font-bold text-stone-800">{donationCount.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <BarChart3 className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Average Donation</p>
+                        <p className="text-xl font-bold text-stone-800">${avgDonation.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <Repeat className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Recurring</p>
+                        <p className="text-xl font-bold text-stone-800">${formatCompactCurrency(recurringStats.total)}</p>
+                        <p className="text-xs text-stone-500">{recurringStats.percentage}% of total</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Receipt className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Total Expenses</p>
+                        <p className="text-xl font-bold text-stone-800">{formatCompactCurrency(expenseTotal)}</p>
+                        <p className="text-xs text-stone-500">{expenseCount} transactions</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Approved Expenses</p>
+                        <p className="text-xl font-bold text-emerald-600">{formatCompactCurrency(expenseApproved)}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Pending Approval</p>
+                        <p className="text-xl font-bold text-amber-600">{formatCompactCurrency(expensePending)}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500">Net Income</p>
+                        <p className={`text-xl font-bold ${givingTotal - expenseTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCompactCurrency(givingTotal - expenseTotal)}</p>
+                        <p className="text-xs text-stone-500">Donations - Expenses</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Fund & Payment Breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {/* Fund Breakdown Chart */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
+                  >
+                    <h3 className="text-lg font-serif font-bold text-stone-800 mb-1">Fund Distribution</h3>
+                    <p className="text-sm text-stone-500 mb-4">Donations by fund type</p>
+                    {fundBreakdown.length === 0 ? (
+                      <div className="h-48 flex items-center justify-center text-stone-400 text-sm">
+                        No fund data available
+                      </div>
+                    ) : (
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPie>
+                            <Pie
+                              data={fundBreakdown}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={70}
+                              paddingAngle={2}
+                              dataKey="amount"
+                            >
+                              {fundBreakdown.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value) => `$${Number(value).toLocaleString()}`}
+                            />
+                          </RechartsPie>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                    <div className="space-y-2 mt-4">
+                      {fundBreakdown.slice(0, 5).map((item) => (
+                        <div key={item.name} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-stone-600 truncate">{item.name}</span>
+                          </div>
+                          <span className="font-medium text-stone-800 shrink-0">
+                            ${item.amount.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Payment Methods */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
+                  >
+                    <h3 className="text-lg font-serif font-bold text-stone-800 mb-1">Payment Methods</h3>
+                    <p className="text-sm text-stone-500 mb-4">Donations by payment type</p>
+                    {paymentMethodBreakdown.length === 0 ? (
+                      <div className="h-48 flex items-center justify-center text-stone-400 text-sm">
+                        No payment method data available
+                      </div>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={paymentMethodBreakdown}
+                            layout="vertical"
+                            margin={{ top: 0, right: 8, left: 4, bottom: 0 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" horizontal={false} />
+                            <XAxis
+                              type="number"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: '#78716c', fontSize: 12 }}
+                              tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: '#78716c', fontSize: 11 }}
+                              width={80}
+                            />
+                            <Tooltip
+                              formatter={(value) => `$${Number(value).toLocaleString()}`}
+                            />
+                            <Bar dataKey="amount" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+
+              {/* Events & Member Status Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Events Statistics */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
+                >
+                  <h3 className="text-lg font-serif font-bold text-stone-800 mb-1 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    Events Summary
+                  </h3>
+                  <p className="text-sm text-stone-500 mb-4">Events in selected period</p>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-stone-500">Events This Period</p>
+                        <p className="text-2xl font-bold text-stone-800">{eventsCount}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-stone-500">vs Previous</p>
+                        <p className={`text-sm font-medium flex items-center gap-1 ${eventsCount >= eventsPrevCount ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {eventsCount >= eventsPrevCount ? (
+                            <ArrowUpRight className="w-3 h-3" />
+                          ) : (
+                            <ArrowDownRight className="w-3 h-3" />
+                          )}
+                          {eventsPrevCount > 0 ? Math.round(((eventsCount - eventsPrevCount) / eventsPrevCount) * 100) : eventsCount > 0 ? 100 : 0}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-stone-500">Completed Events</p>
+                        <p className="text-2xl font-bold text-stone-800">{completedEvents}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-lg bg-emerald-200 flex items-center justify-center">
+                        <Church className="w-5 h-5 text-emerald-700" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-stone-500">Previous Period</p>
+                        <p className="text-xl font-bold text-stone-800">{eventsPrevCount}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-lg bg-amber-200 flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-amber-700" />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Member Status Breakdown */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
+                >
+                  <h3 className="text-lg font-serif font-bold text-stone-800 mb-1">Member Status</h3>
+                  <p className="text-sm text-stone-500 mb-4">Current membership breakdown</p>
+                  {memberStatusBreakdown.length === 0 ? (
+                    <div className="h-48 flex items-center justify-center text-stone-400 text-sm">
+                      No member status data
+                    </div>
+                  ) : (
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPie>
+                          <Pie
+                            data={memberStatusBreakdown}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={65}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {memberStatusBreakdown.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </RechartsPie>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <div className="space-y-2 mt-4">
+                    {memberStatusBreakdown.map((item) => (
+                      <div key={item.name} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-stone-600 truncate">{item.name}</span>
+                        </div>
+                        <span className="font-medium text-stone-800 shrink-0">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Top Donors */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                  className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6"
+                >
+                  <h3 className="text-lg font-serif font-bold text-stone-800 mb-1 flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-rose-600" />
+                    Top Donors
+                  </h3>
+                  <p className="text-sm text-stone-500 mb-4">By total giving ({rangeLabel})</p>
+                  {topDonors.length === 0 ? (
+                    <div className="h-64 flex items-center justify-center text-stone-400 text-sm text-center px-4">
+                      No donation data yet. Top donors will appear here when donations are recorded.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {topDonors.map((donor, index) => (
+                        <div
+                          key={donor.name}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-stone-50 hover:bg-amber-50 transition-colors"
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            index === 0 ? 'bg-amber-100 text-amber-700' :
+                            index === 1 ? 'bg-stone-200 text-stone-600' :
+                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                            'bg-stone-100 text-stone-500'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-stone-800 text-sm truncate">{donor.name}</p>
+                            <p className="text-xs text-stone-500">{donor.count} donations</p>
+                          </div>
+                          <p className="font-bold text-emerald-600 text-sm">
+                            ${donor.amount.toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               </div>
             </>

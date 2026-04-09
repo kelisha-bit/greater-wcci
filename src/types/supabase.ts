@@ -177,7 +177,7 @@ export interface Database {
           donation_date: string
           payment_method: 'cash' | 'check' | 'card' | 'online' | 'bank_transfer' | 'other'
           payment_reference?: string
-          fund_type: 'general' | 'building' | 'missions' | 'benevolence' | 'youth' | 'children' | 'music' | 'other'
+          fund_type: 'Tithes' | 'Offering' | 'Thanksgiving' | 'Prophetic Seed' | 'Building Fund' | 'Missions' | 'Special Project' | 'Wednesday Service' | 'Conference' | 'Others'
           is_recurring: boolean
           recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
           notes?: string
@@ -197,7 +197,7 @@ export interface Database {
           donation_date?: string
           payment_method?: 'cash' | 'check' | 'card' | 'online' | 'bank_transfer' | 'other'
           payment_reference?: string
-          fund_type?: 'general' | 'building' | 'missions' | 'benevolence' | 'youth' | 'children' | 'music' | 'other'
+          fund_type?: 'Tithes' | 'Offering' | 'Thanksgiving' | 'Prophetic Seed' | 'Building Fund' | 'Missions' | 'Special Project' | 'Wednesday Service' | 'Conference' | 'Others'
           is_recurring?: boolean
           recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
           notes?: string
@@ -217,7 +217,7 @@ export interface Database {
           donation_date?: string
           payment_method?: 'cash' | 'check' | 'card' | 'online' | 'bank_transfer' | 'other'
           payment_reference?: string
-          fund_type?: 'general' | 'building' | 'missions' | 'benevolence' | 'youth' | 'children' | 'music' | 'other'
+          fund_type?: 'Tithes' | 'Offering' | 'Thanksgiving' | 'Prophetic Seed' | 'Building Fund' | 'Missions' | 'Special Project' | 'Wednesday Service' | 'Conference' | 'Others'
           is_recurring?: boolean
           recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
           notes?: string
@@ -714,6 +714,77 @@ export interface Database {
           assigned_at?: string
         }
       }
+      expenses: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          description: string
+          amount: number
+          expense_date: string
+          category: 'utilities' | 'salaries' | 'maintenance' | 'supplies' | 'ministry' | 'outreach' | 'missions' | 'events' | 'equipment' | 'insurance' | 'professional_services' | 'rent_mortgage' | 'marketing' | 'benevolence' | 'other'
+          payment_method: 'cash' | 'check' | 'card' | 'bank_transfer' | 'online' | 'other'
+          payment_reference?: string
+          vendor_name?: string
+          vendor_contact?: string
+          budget_category?: string
+          is_approved: boolean
+          approved_by?: string
+          approved_at?: string
+          receipt_url?: string
+          notes?: string
+          is_recurring: boolean
+          recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+          recorded_by?: string
+          updated_by?: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          description: string
+          amount: number
+          expense_date: string
+          category?: 'utilities' | 'salaries' | 'maintenance' | 'supplies' | 'ministry' | 'outreach' | 'missions' | 'events' | 'equipment' | 'insurance' | 'professional_services' | 'rent_mortgage' | 'marketing' | 'benevolence' | 'other'
+          payment_method?: 'cash' | 'check' | 'card' | 'bank_transfer' | 'online' | 'other'
+          payment_reference?: string
+          vendor_name?: string
+          vendor_contact?: string
+          budget_category?: string
+          is_approved?: boolean
+          approved_by?: string
+          approved_at?: string
+          receipt_url?: string
+          notes?: string
+          is_recurring?: boolean
+          recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+          recorded_by?: string
+          updated_by?: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          description?: string
+          amount?: number
+          expense_date?: string
+          category?: 'utilities' | 'salaries' | 'maintenance' | 'supplies' | 'ministry' | 'outreach' | 'missions' | 'events' | 'equipment' | 'insurance' | 'professional_services' | 'rent_mortgage' | 'marketing' | 'benevolence' | 'other'
+          payment_method?: 'cash' | 'check' | 'card' | 'bank_transfer' | 'online' | 'other'
+          payment_reference?: string
+          vendor_name?: string
+          vendor_contact?: string
+          budget_category?: string
+          is_approved?: boolean
+          approved_by?: string
+          approved_at?: string
+          receipt_url?: string
+          notes?: string
+          is_recurring?: boolean
+          recurring_frequency?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+          recorded_by?: string
+          updated_by?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -728,7 +799,7 @@ export interface Database {
       event_status: 'draft' | 'published' | 'cancelled' | 'completed'
       attendance_status: 'present' | 'absent' | 'late' | 'excused'
       payment_method: 'cash' | 'check' | 'card' | 'online' | 'bank_transfer' | 'other'
-      fund_type: 'general' | 'building' | 'missions' | 'benevolence' | 'youth' | 'children' | 'music' | 'other'
+      fund_type: 'Tithes' | 'Offering' | 'Thanksgiving' | 'Prophetic Seed' | 'Building Fund' | 'Missions' | 'Special Project' | 'Wednesday Service' | 'Conference' | 'Others'
       ministry_category: 'worship' | 'outreach' | 'fellowship' | 'education' | 'children' | 'youth' | 'senior' | 'other'
       member_ministry_role: 'leader' | 'member' | 'volunteer'
       registration_status: 'registered' | 'confirmed' | 'cancelled' | 'attended'

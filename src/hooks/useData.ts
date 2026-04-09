@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type {
   Member,
+  MemberCreateInput,
   Event,
   Attendance,
   Donation,
@@ -46,7 +47,8 @@ interface UseListState<T> {
  */
 export function useMembers(
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  status?: string
 ): UseListState<Member> & { refetch: () => Promise<void> } {
   const { api } = useAPI();
   const [state, setState] = useState<Omit<UseListState<Member>, 'refetch'>>({
@@ -61,7 +63,7 @@ export function useMembers(
   const loadMembers = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const response = await api.members.getMembers(page, pageSize);
+      const response = await api.members.getMembers(page, pageSize, status);
       if (response.success && response.data) {
         setState({
           data: response.data,
@@ -85,7 +87,7 @@ export function useMembers(
         error: error instanceof Error ? error.message : 'An error occurred',
       }));
     }
-  }, [api, page, pageSize]);
+  }, [api, page, pageSize, status]);
 
   useEffect(() => {
     loadMembers();
@@ -95,6 +97,16 @@ export function useMembers(
     ...state,
     refetch: loadMembers,
   };
+}
+
+/**
+ * Fetch all visitors with pagination
+ */
+export function useVisitors(
+  page: number = 1,
+  pageSize: number = 10
+): UseListState<Member> & { refetch: () => Promise<void> } {
+  return useMembers(page, pageSize, 'visitor');
 }
 
 /**
@@ -781,7 +793,7 @@ export function useCreateMember() {
   });
 
   const create = useCallback(
-    async (member: Omit<Member, 'id'>) => {
+    async (member: MemberCreateInput) => {
       try {
         setState({ isLoading: true, error: null });
         const response = await api.members.createMember(member);

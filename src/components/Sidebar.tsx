@@ -6,6 +6,7 @@ import {
   Calendar,
   Heart,
   Gift,
+  Receipt,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -23,9 +24,11 @@ import { useAuth } from '../contexts/AuthContext';
 const menuItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
   { icon: Users, label: 'Members', path: '/members' },
+  { icon: User, label: 'Visitors', path: '/visitors' },
   { icon: Calendar, label: 'Events', path: '/events' },
   { icon: Heart, label: 'Attendance', path: '/attendance' },
   { icon: Gift, label: 'Donations', path: '/donations' },
+  { icon: Receipt, label: 'Expenses', path: '/expenses' },
   { icon: BookOpen, label: 'Sermons', path: '/sermons' },
   { icon: BarChart3, label: 'Reports', path: '/reports' },
   { icon: Bell, label: 'Announcements', path: '/announcements' },
@@ -71,7 +74,7 @@ export default function Sidebar() {
             <Church className="w-6 h-6 text-white" />
           </div>
           {sidebarOpen && (
-            <span className="font-serif font-bold text-lg">Grace Church</span>
+            <span className="font-serif font-bold text-lg">Greater Works City Church</span>
           )}
         </motion.div>
         <button

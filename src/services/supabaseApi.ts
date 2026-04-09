@@ -573,7 +573,7 @@ export const supabaseDonationsApi = {
   async getDonations(options?: {
     donorId?: string
     fundType?: string
-    method?: string
+    paymentMethod?: string
     dateFrom?: string
     dateTo?: string
     amountMin?: number
@@ -594,8 +594,8 @@ export const supabaseDonationsApi = {
       query = query.eq('fund_type', options.fundType)
     }
 
-    if (options?.method) {
-      query = query.eq('payment_method', options.method)
+    if (options?.paymentMethod) {
+      query = query.eq('payment_method', options.paymentMethod)
     }
 
     if (options?.dateFrom) {
@@ -948,34 +948,90 @@ export const supabaseReportsApi = {
 
 export const supabaseSettingsApi = {
   /**
-   * Get settings
+   * Get settings - returns default settings if none exist
    */
   async getSettings(): Promise<SettingRow> {
     const { data, error } = await supabase
       .from('settings')
       .select('*')
-      .single()
+      .limit(1)
 
     if (error) throw error
-    return data
+
+    // Return default settings if none exist
+    if (!data || data.length === 0) {
+      return {
+        id: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        church_name: 'ChurchApp',
+        church_email: undefined,
+        church_phone: undefined,
+        church_address: undefined,
+        church_city: undefined,
+        church_state: undefined,
+        church_zip_code: undefined,
+        church_website: undefined,
+        time_zone: 'America/New_York',
+        currency: 'USD',
+        language: 'en',
+        notifications_enabled: true,
+        email_notifications: true,
+        sms_notifications: false,
+        push_notifications: true,
+        default_service_time: '10:00',
+        membership_fee: 0,
+        donation_tax_deductible: true,
+        maintenance_mode: false,
+        maintenance_message: undefined,
+        updated_by: undefined,
+      } as SettingRow
+    }
+    return data[0]
   },
 
   /**
-   * Update settings
+   * Update settings - creates default settings if none exist
    */
   async updateSettings(updates: SettingUpdate): Promise<SettingRow> {
-    // There should be only one settings record
-    const { data: current } = await supabase.from('settings').select('id').single()
-    
+    // Check if settings exist (get first row only)
+    const { data: rows, error: fetchError } = await supabase
+      .from('settings')
+      .select('id')
+      .limit(1)
+
+    if (fetchError) throw fetchError
+
+    const current = rows?.[0]
+
+    if (!current?.id) {
+      // No settings exist - create default settings first
+      const { data: newSettings, error: insertError } = await supabase
+        .from('settings')
+        .insert({
+          church_name: 'ChurchApp',
+          time_zone: 'America/New_York',
+          currency: 'USD',
+          language: 'en',
+          ...updates,
+        })
+        .select()
+        .limit(1)
+
+      if (insertError) throw insertError
+      return newSettings[0]
+    }
+
+    // Update existing settings (only the first row)
     const { data, error } = await supabase
       .from('settings')
       .update(updates)
-      .eq('id', current?.id || '')
+      .eq('id', current.id)
       .select()
-      .single()
+      .limit(1)
 
     if (error) throw error
-    return data
+    return data[0]
   }
 }
 
@@ -1022,6 +1078,99 @@ export const supabaseMinistriesApi = {
     if (error) throw error
     return count ?? 0
   },
+
+  async getMinistriesByNames(names: string[]): Promise<{ id: string; name: string }[]> {
+    if (!names.length) return []
+
+    const { data, error } = await supabase
+      .from('ministries')
+      .select('id, name')
+      .in('name', names)
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getMemberMinistries(memberId: string): Promise<
+    {
+      id: string
+      memberId: string
+      ministryId: string
+      ministryName: string
+      role: 'leader' | 'member' | 'volunteer'
+      joinedDate: string
+    }[]
+  > {
+    const { data: links, error } = await supabase
+      .from('member_ministries')
+      .select('id, member_id, ministry_id, role, joined_date')
+      .eq('member_id', memberId)
+
+    if (error) throw error
+    if (!links || links.length === 0) return []
+
+    const ministryIds = Array.from(new Set(links.map((link) => link.ministry_id)))
+    const { data: ministries, error: ministriesError } = await supabase
+      .from('ministries')
+      .select('id, name')
+      .in('id', ministryIds)
+
+    if (ministriesError) throw ministriesError
+    const ministryMap = new Map((ministries || []).map((item) => [item.id, item.name]))
+
+    return links.map((link) => ({
+      id: link.id,
+      memberId: link.member_id,
+      ministryId: link.ministry_id,
+      ministryName: ministryMap.get(link.ministry_id) || '',
+      role: link.role,
+      joinedDate: link.joined_date,
+    }))
+  },
+
+  async addMemberToMinistry(link: {
+    memberId: string
+    ministryId: string
+    role?: 'leader' | 'member' | 'volunteer'
+    joinedDate?: string
+  }): Promise<{
+    id: string
+    memberId: string
+    ministryId: string
+    role: 'leader' | 'member' | 'volunteer'
+    joinedDate: string
+  }> {
+    const { data, error } = await supabase
+      .from('member_ministries')
+      .insert({
+        member_id: link.memberId,
+        ministry_id: link.ministryId,
+        role: link.role || 'member',
+        joined_date: link.joinedDate || new Date().toISOString().slice(0, 10),
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      id: data.id,
+      memberId: data.member_id,
+      ministryId: data.ministry_id,
+      role: data.role,
+      joinedDate: data.joined_date,
+    }
+  },
+
+  async removeMemberFromMinistry(memberId: string, ministryId: string): Promise<void> {
+    const { error } = await supabase
+      .from('member_ministries')
+      .delete()
+      .eq('member_id', memberId)
+      .eq('ministry_id', ministryId)
+
+    if (error) throw error
+  },
 }
 
 // ============================================================================
@@ -1057,6 +1206,227 @@ export const supabaseStorageApi = {
 }
 
 // ============================================================================
+// EXPENSES API
+// ============================================================================
+
+export const supabaseExpensesApi = {
+  /**
+   * Get all expenses with optional filtering
+   */
+  async getExpenses(options?: {
+    limit?: number
+    offset?: number
+    category?: string
+    vendorName?: string
+    dateFrom?: string
+    dateTo?: string
+    amountMin?: number
+    amountMax?: number
+    isApproved?: boolean
+    search?: string
+  }) {
+    let query = supabase
+      .from('expenses')
+      .select('*', { count: 'exact' })
+      .order('expense_date', { ascending: false })
+
+    if (options?.category) {
+      query = query.eq('category', options.category)
+    }
+
+    if (options?.vendorName) {
+      query = query.ilike('vendor_name', `%${options.vendorName}%`)
+    }
+
+    if (options?.dateFrom) {
+      query = query.gte('expense_date', options.dateFrom)
+    }
+
+    if (options?.dateTo) {
+      query = query.lte('expense_date', options.dateTo)
+    }
+
+    if (options?.amountMin !== undefined) {
+      query = query.gte('amount', options.amountMin)
+    }
+
+    if (options?.amountMax !== undefined) {
+      query = query.lte('amount', options.amountMax)
+    }
+
+    if (options?.isApproved !== undefined) {
+      query = query.eq('is_approved', options.isApproved)
+    }
+
+    if (options?.search) {
+      query = query.or(`description.ilike.%${options.search}%,vendor_name.ilike.%${options.search}%`)
+    }
+
+    if (options?.limit) {
+      const offset = options.offset || 0
+      query = query.range(offset, offset + options.limit - 1)
+    }
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+    return { data: data || [], count: count || 0 }
+  },
+
+  /**
+   * Get single expense by ID
+   */
+  async getExpense(id: string) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Create new expense
+   */
+  async createExpense(expense: {
+    description: string
+    amount: number
+    expense_date: string
+    category?: string
+    payment_method?: string
+    payment_reference?: string
+    vendor_name?: string
+    vendor_contact?: string
+    budget_category?: string
+    is_approved?: boolean
+    notes?: string
+    is_recurring?: boolean
+    recurring_frequency?: string
+    receipt_url?: string
+  }) {
+    const user = await supabaseAuthApi.getCurrentUser()
+    
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert({
+        ...expense,
+        recorded_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Update expense
+   */
+  async updateExpense(id: string, updates: {
+    description?: string
+    amount?: number
+    expense_date?: string
+    category?: string
+    payment_method?: string
+    payment_reference?: string
+    vendor_name?: string
+    vendor_contact?: string
+    budget_category?: string
+    is_approved?: boolean
+    approved_by?: string
+    approved_at?: string
+    notes?: string
+    is_recurring?: boolean
+    recurring_frequency?: string
+    receipt_url?: string
+  }) {
+    const user = await supabaseAuthApi.getCurrentUser()
+    
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({
+        ...updates,
+        updated_by: user?.id,
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Delete expense
+   */
+  async deleteExpense(id: string) {
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  /**
+   * Approve expense
+   */
+  async approveExpense(id: string) {
+    const user = await supabaseAuthApi.getCurrentUser()
+    
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({
+        is_approved: true,
+        approved_by: user?.id,
+        approved_at: new Date().toISOString(),
+        updated_by: user?.id,
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Get expense statistics
+   */
+  async getExpenseStats(options?: {
+    dateFrom?: string
+    dateTo?: string
+  }) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('amount, category, expense_date, is_approved')
+      .gte('expense_date', options?.dateFrom || '1900-01-01')
+      .lte('expense_date', options?.dateTo || '2100-12-31')
+
+    if (error) throw error
+
+    const totalExpenses = data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
+    const approvedExpenses = data?.filter(e => e.is_approved).reduce((sum, e) => sum + Number(e.amount), 0) || 0
+    const pendingExpenses = totalExpenses - approvedExpenses
+
+    const categoryTotals: Record<string, number> = {}
+    data?.forEach(e => {
+      categoryTotals[e.category] = (categoryTotals[e.category] || 0) + Number(e.amount)
+    })
+
+    return {
+      totalExpenses,
+      approvedExpenses,
+      pendingExpenses,
+      categoryTotals,
+      expenseCount: data?.length || 0,
+    }
+  },
+}
+
+// ============================================================================
 // MAIN API EXPORT
 // ============================================================================
 
@@ -1073,4 +1443,5 @@ export const supabaseApi = {
   reports: supabaseReportsApi,
   settings: supabaseSettingsApi,
   storage: supabaseStorageApi,
+  expenses: supabaseExpensesApi,
 }

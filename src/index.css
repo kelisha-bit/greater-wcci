@@ -43,3 +43,49 @@ html {
   background-color: rgba(245, 158, 11, 0.2);
   color: #1c1917;
 }
+
+/* Print styles for donation receipts */
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the receipt content */
+  #receipt-content,
+  #receipt-content * {
+    visibility: visible;
+  }
+
+  /* Position receipt at top-left */
+  #receipt-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+  }
+
+  /* Remove backgrounds and shadows for cleaner print */
+  #receipt-content .bg-gradient-to-r {
+    background: #f0fdf4 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure text is black for printing */
+  #receipt-content {
+    color: #1c1917 !important;
+  }
+
+  /* Remove unnecessary elements */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 0.5in;
+    size: letter;
+  }
+}

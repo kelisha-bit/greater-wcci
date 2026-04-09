@@ -13,8 +13,11 @@ export const roleOptions = [
 
 export const ministryOptions = [
   'Worship Team',
+  'Music Ministry',
   "Children's Ministry",
   'Youth Ministry',
+  'Men Ministry',
+  'Women Ministry',
   'Bible Study',
   'Community Kitchen',
   'Outreach',
@@ -23,7 +26,20 @@ export const ministryOptions = [
   'New Members',
 ] as const;
 
-export const donationMethodOptions = ['Online', 'Check', 'Cash'] as const;
+export const donationMethodOptions = ['Online', 'Check', 'Cash', 'Bank Transfer', 'Card'] as const;
+
+export const donationCategoryOptions = [
+  'Tithes',
+  'Offering',
+  'Thanksgiving',
+  'Prophetic Seed',
+  'Building Fund',
+  'Missions',
+  'Special Project',
+  'Wednesday Service',
+  'Conference',
+  'Others',
+] as const;
 
 export const attendanceStatusOptions = ['present', 'absent', 'late'] as const;
 
@@ -37,4 +53,17 @@ export const fundOptions = [
   'Missions',
   'Youth Ministry',
   "Children's Ministry",
+] as const;
+
+export const maritalStatusOptions = [
+  'Single',
+  'Married',
+  'Divorced',
+  'Widowed',
+] as const;
+
+export const baptismStatusOptions = [
+  'Baptized',
+  'Not Baptized',
+  'Pending',
 ] as const;

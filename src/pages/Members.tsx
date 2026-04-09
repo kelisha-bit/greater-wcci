@@ -6,7 +6,7 @@ import {
   Heart, Users, Edit, X, Camera, AlertCircle, CheckCircle2,
   FileText, Briefcase, Check, Cake, Building2, GraduationCap,
   Home, AlertTriangle, MessageCircle, PhoneCall, HandHeart, CalendarDays,
-  Trash2
+  Trash2, LayoutGrid, LayoutList
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -24,6 +24,7 @@ import {
   roleOptions, 
   ministryOptions 
 } from '../constants/options';
+import { MemberCard, MemberCardSkeleton } from '../components/members';
 import { validateMemberForm } from '../utils/validation';
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -186,6 +187,7 @@ export default function Members() {
   const [bulkMinistry, setBulkMinistry] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   
   // Use data hooks
   const { api } = useAPI();
@@ -1048,6 +1050,22 @@ export default function Members() {
               <button className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 hover:bg-stone-100 transition-colors">
                 <Filter className="w-5 h-5 text-stone-600" />
               </button>
+              <div className="flex items-center bg-stone-50 rounded-xl border border-stone-200 p-1">
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === 'cards' ? 'bg-white shadow-sm text-amber-600' : 'text-stone-400 hover:text-stone-600'}`}
+                  title="Card view"
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-white shadow-sm text-amber-600' : 'text-stone-400 hover:text-stone-600'}`}
+                  title="Table view"
+                >
+                  <LayoutList className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
           {canManageMembers && selectedIds.size > 0 && (
@@ -1098,18 +1116,26 @@ export default function Members() {
           )}
         </motion.div>
 
-        {/* Members Table */}
+        {/* Members List - Card or Table View */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 overflow-hidden"
+          className={viewMode === 'table' ? "bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 overflow-hidden" : ""}
         >
           {membersLoading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto mb-4"></div>
-              <p className="text-stone-600">Loading members...</p>
-            </div>
+            viewMode === 'cards' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <MemberCardSkeleton key={i} index={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto mb-4"></div>
+                <p className="text-stone-600">Loading members...</p>
+              </div>
+            )
           ) : membersError ? (
             <div className="p-8 text-center">
               <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-4" />
@@ -1125,6 +1151,74 @@ export default function Members() {
                 Try Again
               </button>
             </div>
+          ) : sortedMembers.length === 0 ? (
+            <div className={viewMode === 'table' ? "" : "bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-8"}>
+              <EmptyState
+                icon="search"
+                title="No members found"
+                description="No members match your current search or filter criteria."
+                action={{
+                  label: "Clear Filters",
+                  onClick: () => {
+                    setSearchQuery('');
+                    setSelectedStatus('all');
+                    setSelectedMinistry('all');
+                  }
+                }}
+              />
+            </div>
+          ) : viewMode === 'cards' ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {paginatedMembers.map((member, index) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    index={index}
+                    selected={selectedIds.has(member.id)}
+                    canManage={canManageMembers}
+                    onSelect={(id, selected) => {
+                      const next = new Set(selectedIds);
+                      if (selected) next.add(id);
+                      else next.delete(id);
+                      setSelectedIds(next);
+                    }}
+                    onClick={() => setSelectedMember(member)}
+                    onEdit={() => {
+                      setSelectedMember(null);
+                      openEditMember(member);
+                    }}
+                    onDelete={() => openDeleteConfirm(member)}
+                  />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 px-5 py-4">
+                  <p className="text-sm text-stone-500">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, sortedMembers.length)} of {sortedMembers.length} members
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg bg-stone-50 text-stone-700 text-xs font-medium hover:bg-stone-100 transition-colors disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-stone-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg bg-stone-50 text-stone-700 text-xs font-medium hover:bg-stone-100 transition-colors disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1157,26 +1251,7 @@ export default function Members() {
                 </tr>
               </thead>
               <tbody>
-                {sortedMembers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-16">
-                      <EmptyState
-                        icon="search"
-                        title="No members found"
-                        description="No members match your current search or filter criteria."
-                        action={{
-                          label: "Clear Filters",
-                          onClick: () => {
-                            setSearchQuery('');
-                            setSelectedStatus('all');
-                            setSelectedMinistry('all');
-                          }
-                        }}
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedMembers.map((member, index) => (
+                {paginatedMembers.map((member, index) => (
                   <motion.tr
                     key={member.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -1222,7 +1297,7 @@ export default function Members() {
                                   parent.classList.remove('bg-stone-200');
                                   parent.classList.add(`bg-gradient-to-br`);
                                   const gradient = ministryColors[member.primaryMinistry as keyof typeof ministryColors] || 'from-stone-400 to-gray-500';
-                                  gradient.split(' ').forEach(cls => parent.classList.add(cls));
+                                  gradient.split(' ').forEach((cls: string) => parent.classList.add(cls));
                                 }
                               }}
                             />
@@ -1301,8 +1376,7 @@ export default function Members() {
                       </div>
                     </td>
                   </motion.tr>
-                ))
-                )}
+                ))}
               </tbody>
             </table>
             {totalPages > 1 && (
@@ -1667,7 +1741,7 @@ export default function Members() {
                                           day: 'numeric' 
                                         })}
                                       </p>
-                                      <p className="text-xs text-stone-500">{donation.method}</p>
+                                      <p className="text-xs text-stone-500">{donation.paymentMethod}</p>
                                     </div>
                                   </div>
                                 </div>

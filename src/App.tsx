@@ -10,9 +10,11 @@ import { Notification } from './components/Notifications';
 // Lazy load pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Members = lazy(() => import('./pages/Members'));
+const Visitors = lazy(() => import('./pages/Visitors'));
 const Events = lazy(() => import('./pages/Events'));
 const Attendance = lazy(() => import('./pages/Attendance'));
 const Donations = lazy(() => import('./pages/Donations'));
+const Expenses = lazy(() => import('./pages/Expenses'));
 const Sermons = lazy(() => import('./pages/Sermons'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Announcements = lazy(() => import('./pages/Announcements'));
@@ -74,9 +76,11 @@ function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/members" element={<Members />} />
+          <Route path="/visitors" element={<Visitors />} />
           <Route path="/events" element={<Events />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/donations" element={<Donations />} />
+          <Route path="/expenses" element={<Expenses />} />
           <Route path="/sermons" element={<Sermons />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/announcements" element={<Announcements />} />
