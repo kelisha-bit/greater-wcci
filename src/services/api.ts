@@ -175,14 +175,14 @@ export interface Sermon {
 }
 
 export interface Announcement {
-  id: number;
+  id: string;
   title: string;
   content: string;
   createdDate: string;
   expiryDate?: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
   category: string;
-  authorId: number;
+  authorId: string;
 }
 
 export interface Report {
@@ -286,7 +286,7 @@ function transformMemberRow(row: MemberRow): Member {
     status: row.membership_status === 'visitor' ? 'new' : row.membership_status as 'active' | 'inactive' | 'new',
     role: row.role || 'member', // Use the fetched role, default to 'member'
     primaryMinistry: row.primary_ministry || '',
-    joinDate: row.join_date,
+    joinDate: row.join_date ?? '',
     dateOfBirth: row.date_of_birth || '',
     departments: row.departments || [],
     education: row.education || '',
@@ -1834,9 +1834,9 @@ function transformAnnouncementRow(row: any): Announcement {
     content: row.content,
     createdDate: row.published_date,
     expiryDate: row.expiry_date || undefined,
-    priority: row.priority as 'low' | 'medium' | 'high',
+    priority: row.priority as 'low' | 'medium' | 'high' | 'urgent',
     category: row.category,
-    authorId: row.author_id || 0,
+    authorId: row.author_id || '',
   };
 }
 
@@ -1876,6 +1876,7 @@ export const announcementsApi = {
         category: announcement.category,
         published_date: new Date().toISOString(),
         is_active: true,
+        expiry_date: announcement.expiryDate || null,
       };
 
       const data = await supabaseApi.announcements.createAnnouncement(announcementInsert);

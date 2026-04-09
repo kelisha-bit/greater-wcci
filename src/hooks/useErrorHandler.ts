@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react';
 import { useNotification } from './useNotification';
-import { logError, getUserFriendlyMessage, parseError, type AppError } from '../utils/errorHandler';
+import { logError, getUserFriendlyMessage, type AppError } from '../utils/errorHandler';
 
 interface ErrorHandlerOptions {
   context?: string;

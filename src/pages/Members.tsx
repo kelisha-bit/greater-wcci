@@ -5,9 +5,8 @@ import {
   ChevronDown, Download, Upload, MoreHorizontal, User,
   Heart, Users, Edit, X, Camera, AlertCircle, CheckCircle2,
   FileText, Briefcase, Check, Cake, Building2, GraduationCap,
-  Home, AlertTriangle, MessageCircle, PhoneCall, HandHeart, CalendarDays,
-  Trash2, LayoutGrid, LayoutList, TrendingUp, Award, Clock, Star,
-  ChevronRight, Wallet, Activity, Shield
+  Home, AlertTriangle, HandHeart,
+  Trash2, LayoutGrid, LayoutList
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -36,6 +35,7 @@ const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 type ProfileTab = 'overview' | 'donations' | 'attendance' | 'family';
 
 interface TabCache {
+  [key: string]: Donation[] | Attendance[] | any[] | undefined;
   donations?: Donation[];
   attendance?: Attendance[];
   family?: any[];

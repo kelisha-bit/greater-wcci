@@ -2,12 +2,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mail, Phone, MapPin, Calendar, Heart, Users, Edit,
   Cake, Building2, GraduationCap, Home, AlertTriangle,
-  MessageCircle, PhoneCall, HandHeart, CalendarDays, Trash2,
-  User, Briefcase, FileText, TrendingUp, Wallet, Activity,
-  Shield, Star, Clock, Award, ChevronRight,
+  HandHeart, Trash2, User, Briefcase, FileText,
+  CalendarDays, ChevronRight, Award, Shield, Clock,
+  Wallet, TrendingUp, Activity, Star, PhoneCall, MessageCircle,
 } from 'lucide-react';
 import type { Member, Donation, Attendance } from '../../services/api';
-import { ministryColors, memberStatusColors } from '../../constants/colors';
+import { ministryColors } from '../../constants/colors';
 
 type ProfileTab = 'overview' | 'donations' | 'attendance' | 'family';
 

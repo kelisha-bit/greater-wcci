@@ -34,7 +34,7 @@ function pctChange(current: number, previous: number): number {
 export default function Dashboard() {
   const { profile, user } = useAuth();
   const { handleError } = useErrorHandler();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,

@@ -49,7 +49,7 @@ export function parseError(error: unknown, context?: string): AppError {
  * Get a user-friendly error message based on error type and context
  */
 export function getUserFriendlyMessage(error: AppError | unknown): string {
-  const err = error instanceof AppError ? error : parseError(error);
+  const err = parseError(error) as AppError;
 
   // Network errors
   if (err.message?.includes('fetch') || err.message?.includes('network')) {

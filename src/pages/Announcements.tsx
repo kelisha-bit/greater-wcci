@@ -75,7 +75,7 @@ export default function Announcements() {
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.content.trim()) {
-      notify('Title and content are required', 'error');
+      notify('error', 'Validation', 'Title and content are required');
       return;
     }
     setSaving(true);
@@ -85,14 +85,15 @@ export default function Announcements() {
       category: form.category,
       priority: form.priority as Announcement['priority'],
       expiryDate: form.expiryDate || undefined,
+      authorId: '',
     });
     setSaving(false);
     if (res.success) {
-      notify('Announcement created', 'success');
+      notify('success', 'Announcement created');
       setShowAddModal(false);
-      window.location.reload(); // refresh data
+      window.location.reload();
     } else {
-      notify(res.error || 'Failed to create announcement', 'error');
+      notify('error', 'Error', res.error || 'Failed to create announcement');
     }
   };
 
@@ -113,7 +114,7 @@ export default function Announcements() {
   const handleUpdate = async () => {
     if (!editTarget) return;
     if (!form.title.trim() || !form.content.trim()) {
-      notify('Title and content are required', 'error');
+      notify('error', 'Validation', 'Title and content are required');
       return;
     }
     setSaving(true);
@@ -126,12 +127,12 @@ export default function Announcements() {
     });
     setSaving(false);
     if (res.success) {
-      notify('Announcement updated', 'success');
+      notify('success', 'Announcement updated');
       setShowEditModal(false);
       setSelectedAnnouncement(null);
       window.location.reload();
     } else {
-      notify(res.error || 'Failed to update announcement', 'error');
+      notify('error', 'Error', res.error || 'Failed to update announcement');
     }
   };
 
@@ -156,7 +157,7 @@ export default function Announcements() {
       const emails = (data || []).map((m: { email: string }) => m.email).filter(Boolean);
 
       if (emails.length === 0) {
-        notify('No active members found with email addresses', 'error');
+        notify('error', 'No members', 'No active members found with email addresses');
         setSending(false);
         return;
       }
@@ -176,9 +177,9 @@ export default function Announcements() {
       window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
 
       setSendResult({ emails, copied: true });
-      notify(`Opened email client for ${emails.length} members`, 'success');
+      notify('success', 'Email client opened', `Loaded ${emails.length} member emails`);
     } catch (err) {
-      notify(err instanceof Error ? err.message : 'Failed to fetch member emails', 'error');
+      notify('error', 'Error', err instanceof Error ? err.message : 'Failed to fetch member emails');
     }
     setSending(false);
   };
@@ -191,11 +192,11 @@ export default function Announcements() {
     const res = await api.announcements.deleteAnnouncement(id);
     setDeleting(null);
     if (res.success) {
-      notify('Announcement deleted', 'success');
+      notify('success', 'Announcement deleted');
       if (selectedAnnouncement?.id === id) setSelectedAnnouncement(null);
       window.location.reload();
     } else {
-      notify(res.error || 'Failed to delete announcement', 'error');
+      notify('error', 'Error', res.error || 'Failed to delete announcement');
     }
   };
 
