@@ -260,9 +260,10 @@ export const supabaseMembersApi = {
       .from('members')
       .select('*')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) throw new Error('Member not found')
     return data
   },
 
@@ -278,9 +279,10 @@ export const supabaseMembersApi = {
       .from('members')
       .select('*')
       .eq('email', user.email)
-      .single()
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) throw new Error('Profile not found')
     return data
   },
 
@@ -307,9 +309,22 @@ export const supabaseMembersApi = {
       .update(updates)
       .eq('id', id)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) throw error
+
+    // RLS may block the SELECT after UPDATE — re-fetch the row directly
+    if (!data) {
+      const { data: refetched, error: fetchError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+      if (fetchError) throw fetchError
+      if (!refetched) throw new Error('Member not found after update')
+      return refetched
+    }
+
     return data
   },
 

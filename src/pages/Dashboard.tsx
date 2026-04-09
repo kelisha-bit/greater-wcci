@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { RefreshCw } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
 import StatsCard from '../components/StatsCard';
@@ -31,11 +33,20 @@ function pctChange(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function Dashboard() {
   const { profile, user } = useAuth();
   const { handleError } = useErrorHandler();
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
     sundayAttendance: 0,
@@ -127,11 +138,13 @@ export default function Dashboard() {
         donationsChange: pctChange(monthlyTotal, prevMonthTotal),
         volunteersChange: 0,
       });
+      setLastUpdated(new Date());
     } catch (err) {
       handleError(err, { context: 'Dashboard data fetch', showNotification: false });
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [handleError]);
 
@@ -161,7 +174,7 @@ export default function Dashboard() {
       <>
         <Header />
         <ErrorBoundary>
-          <main className="p-6 lg:p-8 space-y-8">
+          <main className="p-6 lg:p-8 space-y-8 min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/20 to-white">
             <div className="space-y-2">
               <div className="h-8 bg-stone-200 rounded-lg w-48 animate-pulse" />
               <div className="h-4 bg-stone-100 rounded-lg w-64 animate-pulse" />
@@ -175,10 +188,10 @@ export default function Dashboard() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-1">
                 <ChartSkeleton />
               </div>
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-2">
                 <ChartSkeleton />
               </div>
             </div>
@@ -215,18 +228,51 @@ export default function Dashboard() {
     <>
       <Header />
       <ErrorBoundary>
-        <main className="p-6 lg:p-8">
+        <main className="p-6 lg:p-8 min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/20 to-white">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="mb-6"
           >
-            <h1 className="text-3xl lg:text-4xl font-serif font-bold text-stone-800">
-              Welcome back, {displayName}
-            </h1>
-            <p className="text-stone-600 mt-2 font-light">
-              Here&apos;s what&apos;s happening at your church today.
-            </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-serif font-bold text-stone-800">
+                  {getGreeting()}, {displayName}
+                </h1>
+                <p className="text-stone-500 mt-1 font-light">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {lastUpdated && (
+                  <span className="text-xs text-stone-400 hidden sm:block">
+                    Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setRefreshing(true); fetchDashboardData(); }}
+                  title="Refresh dashboard"
+                  className="p-2 rounded-xl hover:bg-stone-100 transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 text-stone-400 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-center gap-3 mb-6 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl text-sm"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+            <span className="font-medium text-amber-700">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+            </span>
+            <span className="text-stone-300">·</span>
+            <span className="text-stone-500">Here&apos;s what&apos;s happening at your church today.</span>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -267,7 +313,9 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <DemographicsChart />
+            <div className="lg:col-span-1">
+              <DemographicsChart />
+            </div>
             <MinistryGroups />
           </div>
 

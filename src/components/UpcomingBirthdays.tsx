@@ -45,8 +45,8 @@ export default function UpcomingBirthdays() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.55 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50"
+      transition={{ delay: 0.5 }}
+      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50 min-h-[200px]"
     >
       <div className="flex items-center justify-between mb-6">
         <div>

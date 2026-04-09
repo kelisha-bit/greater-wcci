@@ -15,10 +15,16 @@ import {
   BarChart3,
   User,
   LogOut,
+  Clock,
+  MapPin,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useUI } from '../contexts/UIContext';
 import { useAuth } from '../contexts/AuthContext';
+import { eventsApi } from '../services/api';
+import type { Event } from '../services/api';
 
 const menuItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
@@ -35,10 +41,42 @@ const menuItems = [
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
+function useNextService() {
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await eventsApi.getEvents({ upcoming: true, limit: 5 });
+        if (cancelled) return;
+        if (res.success && res.data && res.data.length > 0) {
+          // Pick the soonest upcoming event
+          const sorted = [...res.data].sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+          setEvent(sorted[0]);
+        } else {
+          setEvent(null);
+        }
+      } catch {
+        if (!cancelled) setEvent(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { event, loading };
+}
+
 export default function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useUI();
   const { user, signOut, isAdminOrStaff, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
+  const { event: nextService, loading: serviceLoading } = useNextService();
 
   const handleSignOut = async () => {
     try {
@@ -156,19 +194,67 @@ export default function Sidebar() {
         </button>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-2">
           {sidebarOpen ? (
-            <div className="rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-4">
-              <p className="mb-2 text-xs text-stone-400">Next Service</p>
-              <p className="font-semibold text-amber-400">Sunday, 10:00 AM</p>
-              <p className="mt-1 text-xs text-stone-500">Main Sanctuary</p>
-            </div>
-          ) : (
-            <div
-              className="flex items-center justify-center rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-3"
-              title="Next Service: Sunday, 10:00 AM • Main Sanctuary"
-              aria-label="Next Service: Sunday, 10:00 AM, Main Sanctuary"
+            <button
+              type="button"
+              onClick={() => navigate('/events')}
+              className="w-full text-left rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-4 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors"
             >
-              <Calendar className="h-5 w-5 text-amber-400" />
-            </div>
+              <p className="mb-2 text-xs text-stone-400">Next Service</p>
+              {serviceLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                  <span className="text-xs text-stone-500">Loading…</span>
+                </div>
+              ) : nextService ? (
+                <>
+                  <p className="font-semibold text-amber-400 truncate">{nextService.title}</p>
+                  <div className="mt-1.5 space-y-0.5">
+                    <p className="flex items-center gap-1.5 text-xs text-stone-400">
+                      <Calendar className="w-3 h-3 shrink-0 text-amber-500/70" />
+                      {new Date(nextService.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </p>
+                    {nextService.time && (
+                      <p className="flex items-center gap-1.5 text-xs text-stone-400">
+                        <Clock className="w-3 h-3 shrink-0 text-amber-500/70" />
+                        {nextService.time}
+                      </p>
+                    )}
+                    {nextService.location && (
+                      <p className="flex items-center gap-1.5 text-xs text-stone-400 truncate">
+                        <MapPin className="w-3 h-3 shrink-0 text-amber-500/70" />
+                        {nextService.location}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-stone-500">No upcoming events</p>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/events')}
+              className="flex items-center justify-center w-full rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-3 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors"
+              title={
+                serviceLoading
+                  ? 'Loading next service…'
+                  : nextService
+                  ? `${nextService.title} · ${new Date(nextService.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${nextService.time ? ' · ' + nextService.time : ''}${nextService.location ? ' · ' + nextService.location : ''}`
+                  : 'No upcoming events'
+              }
+              aria-label="Next service"
+            >
+              {serviceLoading ? (
+                <Loader2 className="h-5 w-5 text-amber-400 animate-spin" />
+              ) : (
+                <Calendar className="h-5 w-5 text-amber-400" />
+              )}
+            </button>
           )}
         </motion.div>
       </div>

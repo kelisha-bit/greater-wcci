@@ -139,8 +139,8 @@ export default function ActivityFeed() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.7 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50"
+      transition={{ delay: 0.6 }}
+      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50 min-h-[200px]"
     >
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -201,11 +201,11 @@ export default function ActivityFeed() {
 
       <div className="mt-6 pt-6 border-t border-stone-100">
         <p className="text-xs font-medium text-stone-500 mb-3">Quick Actions</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleAddMember}
-            className="flex-1 py-2 px-3 rounded-lg bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+            className="flex-1 min-w-[80px] py-2 px-3 rounded-lg bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
           >
             <Plus className="w-3 h-3" />
             Add Member
@@ -213,18 +213,18 @@ export default function ActivityFeed() {
           <button
             type="button"
             onClick={handleRecordDonation}
-            className="flex-1 py-2 px-3 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1"
+            className="flex-1 min-w-[80px] py-2 px-3 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1"
           >
             <Plus className="w-3 h-3" />
-            Record Donation
+            Donation
           </button>
           <button
             type="button"
             onClick={handleSendMessage}
-            className="flex-1 py-2 px-3 rounded-lg bg-amber-50 text-amber-600 text-xs font-medium hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+            className="flex-1 min-w-[80px] py-2 px-3 rounded-lg bg-amber-50 text-amber-600 text-xs font-medium hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
           >
             <Send className="w-3 h-3" />
-            Send Message
+            Message
           </button>
         </div>
       </div>
