@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
+import BottomNav from './components/BottomNav';
 import ErrorBoundary from './components/ErrorBoundary';
 import { UIProvider, useUI } from './contexts/UIContext';
 import { APIProvider } from './contexts/APIContext';
@@ -31,10 +32,11 @@ function AppLayout() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-stone-100">
       <Sidebar />
-      <div className={`min-h-screen min-w-0 transition-all duration-300 ml-0 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
+      <div className={`min-h-screen min-w-0 transition-all duration-300 ml-0 pb-16 lg:pb-0 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
         <Outlet />
       </div>
-      <div className="fixed bottom-6 right-6 z-[60]">
+      <BottomNav />
+      <div className="fixed bottom-20 right-4 z-[60] lg:bottom-6 lg:right-6">
         <Notification
           type={notification.type}
           title={notification.title}

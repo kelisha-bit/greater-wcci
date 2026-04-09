@@ -32,6 +32,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Singleton promise to prevent concurrent auth initialization
+let authInitPromise: Promise<Session | null> | null = null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Member | null>(null);
@@ -81,7 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session: s } } = await supabase.auth.getSession();
+        // Use singleton promise to prevent concurrent auth checks
+        if (!authInitPromise) {
+          authInitPromise = supabase.auth.getSession().then(res => {
+            authInitPromise = null; // Reset after completion
+            return res.data.session;
+          }).catch(err => {
+            authInitPromise = null;
+            throw err;
+          });
+        }
+
+        const s = await authInitPromise;
         if (cancelled.current) return;
 
         setSession(s);

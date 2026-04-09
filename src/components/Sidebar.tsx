@@ -47,7 +47,10 @@ function useNextService() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    // Debounce the fetch to prevent concurrent requests
+    const fetchEvent = async () => {
       try {
         const res = await eventsApi.getEvents({ upcoming: true, limit: 5 });
         if (cancelled) return;
@@ -65,18 +68,32 @@ function useNextService() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+
+    // Delay fetch slightly to let auth settle
+    timeoutId = setTimeout(fetchEvent, 100);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   return { event, loading };
 }
 
 export default function Sidebar() {
-  const { sidebarOpen, toggleSidebar } = useUI();
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUI();
   const { user, signOut, isAdminOrStaff, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
   const { event: nextService, loading: serviceLoading } = useNextService();
+
+  // Close sidebar on mobile when navigating
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -158,6 +175,7 @@ export default function Sidebar() {
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={handleNavClick}
             className={({ isActive }) =>
               `w-full flex items-center gap-3 px-3 py-3 rounded-xl mb-2 transition-all duration-200 ${
                 isActive
