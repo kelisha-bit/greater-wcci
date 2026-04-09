@@ -3,7 +3,7 @@
  * Provides centralized access to API service layer throughout the app
  */
 
-import { createContext, useState, useMemo, useContext, type ReactNode } from 'react';
+import { createContext, useState, useMemo, useCallback, useContext, type ReactNode } from 'react';
 import api from '../services/api';
 
 interface APIContextType {
@@ -38,14 +38,14 @@ export function APIProvider({ children }: { children: ReactNode }) {
   const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const clearError = () => setError(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const value = useMemo(() => ({
     api,
     isLoading,
     error,
     clearError,
-  }), [isLoading, error]);
+  }), [isLoading, error, clearError]);
 
   return (
     <APIContext.Provider value={value}>

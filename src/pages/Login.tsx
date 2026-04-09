@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Church, Lock, Mail } from 'lucide-react';
 import ErrorBoundary from '../components/ErrorBoundary';
 import api from '../services/api';
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,15 +14,33 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const attempts = useRef(0);
+  const lockedUntil = useRef<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Client-side rate limiting
+    if (lockedUntil.current && Date.now() < lockedUntil.current) {
+      const remaining = Math.ceil((lockedUntil.current - Date.now()) / 1000 / 60);
+      setError(`Too many failed attempts. Please try again in ${remaining} minute${remaining !== 1 ? 's' : ''}.`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await api.auth.login(email.trim(), password);
       if (!res.success || !res.data) {
-        setError(res.error || 'Sign in failed');
+        attempts.current += 1;
+        if (attempts.current >= MAX_ATTEMPTS) {
+          lockedUntil.current = Date.now() + LOCKOUT_MS;
+          attempts.current = 0;
+          setError('Too many failed attempts. Please try again in 5 minutes.');
+        } else {
+          const remaining = MAX_ATTEMPTS - attempts.current;
+          setError(`${res.error || 'Sign in failed'}. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
+        }
         return;
       }
       if (!res.data.token) {
@@ -28,6 +49,8 @@ export default function Login() {
         );
         return;
       }
+      attempts.current = 0;
+      lockedUntil.current = null;
       navigate('/', { replace: true });
     } finally {
       setSubmitting(false);

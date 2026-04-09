@@ -41,14 +41,14 @@ export const formatTime = (timeString: string): string => {
 };
 
 /**
- * Format currency value to USD
+ * Format currency value to GHS (Ghana Cedis)
  * @param amount Numeric amount
  * @returns Formatted currency string
  */
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-GH', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'GHS',
   }).format(amount);
 };
 
@@ -110,8 +110,10 @@ export const getLocalToday = (): string => {
  * @returns ISO string for current local time
  */
 export const getLocalNowISO = (): string => {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
+  // Store check-ins as real UTC instants.
+  // The UI can always format to local time for display, but the database should not store
+  // "local time disguised as UTC" because it breaks date-range queries and aggregations.
+  return new Date().toISOString();
 };
 
 /**

@@ -3,7 +3,7 @@
  * Encapsulates API calls with loading and error state management
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   Member,
   MemberCreateInput,
@@ -36,6 +36,19 @@ interface UseListState<T> {
   page: number;
   pageSize: number;
   refetch?: () => Promise<void>;
+}
+
+/**
+ * Stable serialization of a filters object for use as a useEffect dependency.
+ * Avoids re-fetching when a new object reference is passed with the same values.
+ */
+function useStableFilters(filters: Record<string, unknown> | undefined): string {
+  const ref = useRef<string>('');
+  const serialized = JSON.stringify(filters ?? {});
+  if (ref.current !== serialized) {
+    ref.current = serialized;
+  }
+  return ref.current;
 }
 
 // ============================================================================
@@ -87,7 +100,7 @@ export function useMembers(
         error: error instanceof Error ? error.message : 'An error occurred',
       }));
     }
-  }, [api, page, pageSize, status]);
+  }, [page, pageSize, status]);
 
   useEffect(() => {
     loadMembers();
@@ -150,7 +163,7 @@ export function useMember(id: string | null) {
     };
 
     loadMember();
-  }, [api, id]);
+  }, [id]);
 
   return state;
 }
@@ -212,7 +225,7 @@ export function useMemberStats() {
         error: error instanceof Error ? error.message : 'An error occurred',
       }));
     }
-  }, [api]);
+  }, []);
 
   useEffect(() => {
     loadStats();
@@ -239,7 +252,7 @@ export function useEvents(filters?: Record<string, unknown>) {
     pageSize: 10,
   });
 
-  const stringifiedFilters = JSON.stringify(filters);
+  const stableFilters = useStableFilters(filters);
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -272,7 +285,8 @@ export function useEvents(filters?: Record<string, unknown>) {
     };
 
     loadEvents();
-  }, [api, stringifiedFilters]); // Use stringified filters here
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableFilters]);
 
   return state;
 }
@@ -318,7 +332,7 @@ export function useEvent(id: number | null) {
     };
 
     loadEvent();
-  }, [api, id]);
+  }, [id]);
 
   return state;
 }
@@ -344,7 +358,7 @@ export function useAttendance(
     pageSize: 10,
   });
 
-  const stringifiedFilters = JSON.stringify(filters);
+  const stableFilters = useStableFilters(filters);
 
   const loadRecords = useCallback(async () => {
     if (!enabled) {
@@ -384,7 +398,8 @@ export function useAttendance(
         error: error instanceof Error ? error.message : 'An error occurred',
       }));
     }
-  }, [api, enabled, stringifiedFilters, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, stableFilters]);
 
   useEffect(() => {
     void loadRecords();
@@ -439,7 +454,7 @@ export function useAttendanceStats() {
     };
 
     loadStats();
-  }, [api]);
+  }, []);
 
   return state;
 }
@@ -454,7 +469,7 @@ export function useAttendanceStats() {
 export function useDonations(
   page: number = 1,
   pageSize: number = 10,
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
 ): UseListState<Donation> & { refetch: () => Promise<void> } {
   const { api } = useAPI();
   const [state, setState] = useState<Omit<UseListState<Donation>, 'refetch'>>({
@@ -466,7 +481,7 @@ export function useDonations(
     pageSize,
   });
 
-  const stringifiedFilters = JSON.stringify(filters);
+  const stableFilters = useStableFilters(filters);
 
   const loadDonations = useCallback(async () => {
     try {
@@ -499,7 +514,8 @@ export function useDonations(
         error: error instanceof Error ? error.message : 'An error occurred',
       }));
     }
-  }, [api, page, pageSize, stringifiedFilters]); // Use stringified filters here
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, stableFilters]);
 
   useEffect(() => {
     loadDonations();
@@ -565,7 +581,7 @@ export function useDonationStats() {
     };
 
     loadStats();
-  }, [api]);
+  }, []);
 
   return state;
 }
@@ -587,6 +603,8 @@ export function useSermons(filters?: Record<string, unknown>) {
     page: 1,
     pageSize: 10,
   });
+
+  const stableFilters = useStableFilters(filters);
 
   useEffect(() => {
     const loadSermons = async () => {
@@ -619,7 +637,8 @@ export function useSermons(filters?: Record<string, unknown>) {
     };
 
     loadSermons();
-  }, [api, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableFilters]);
 
   return state;
 }
@@ -665,7 +684,7 @@ export function useSermon(id: number | null) {
     };
 
     loadSermon();
-  }, [api, id]);
+  }, [id]);
 
   return state;
 }
@@ -687,6 +706,8 @@ export function useAnnouncements(filters?: Record<string, unknown>) {
     page: 1,
     pageSize: 10,
   });
+
+  const stableFilters = useStableFilters(filters);
 
   useEffect(() => {
     const loadAnnouncements = async () => {
@@ -719,7 +740,8 @@ export function useAnnouncements(filters?: Record<string, unknown>) {
     };
 
     loadAnnouncements();
-  }, [api, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableFilters]);
 
   return state;
 }
@@ -741,6 +763,8 @@ export function useReports(filters?: Record<string, unknown>) {
     page: 1,
     pageSize: 10,
   });
+
+  const stableFilters = useStableFilters(filters);
 
   useEffect(() => {
     const loadReports = async () => {
@@ -773,7 +797,8 @@ export function useReports(filters?: Record<string, unknown>) {
     };
 
     loadReports();
-  }, [api, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableFilters]);
 
   return state;
 }
@@ -1085,3 +1110,4 @@ export function useUpdateAttendance() {
 
   return { ...state, update };
 }
+

@@ -6,7 +6,8 @@ import {
   Heart, Users, Edit, X, Camera, AlertCircle, CheckCircle2,
   FileText, Briefcase, Check, Cake, Building2, GraduationCap,
   Home, AlertTriangle, MessageCircle, PhoneCall, HandHeart, CalendarDays,
-  Trash2, LayoutGrid, LayoutList
+  Trash2, LayoutGrid, LayoutList, TrendingUp, Award, Clock, Star,
+  ChevronRight, Wallet, Activity, Shield
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -22,9 +23,11 @@ import {
 } from '../constants/colors';
 import { 
   roleOptions, 
-  ministryOptions 
+  ministryOptions,
+  baptismStatusOptions,
+  maritalStatusOptions,
 } from '../constants/options';
-import { MemberCard, MemberCardSkeleton } from '../components/members';
+import { MemberCard, MemberCardSkeleton, MemberProfileModal } from '../components/members';
 import { validateMemberForm } from '../utils/validation';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -57,6 +60,9 @@ interface EditMemberForm {
   state: string;
   zipCode: string;
   notes: string;
+  baptismStatus: string;
+  maritalStatus: string;
+  ministryInvolvement: string[];
 }
 
 interface EmergencyContact {
@@ -85,6 +91,9 @@ interface FormData {
   zipCode: string;
   emergencyContact: EmergencyContact;
   notes: string;
+  baptismStatus: string;
+  maritalStatus: string;
+  ministryInvolvement: string[];
 }
 
 
@@ -163,6 +172,9 @@ export default function Members() {
     state: '',
     zipCode: '',
     notes: '',
+    baptismStatus: '',
+    maritalStatus: '',
+    ministryInvolvement: [],
   });
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
   const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
@@ -307,6 +319,9 @@ export default function Members() {
       relationship: '',
     },
     notes: '',
+    baptismStatus: '',
+    maritalStatus: '',
+    ministryInvolvement: [],
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -401,6 +416,9 @@ export default function Members() {
       city: formData.city,
       state: formData.state,
       zipCode: formData.zipCode,
+      baptismStatus: formData.baptismStatus,
+      maritalStatus: formData.maritalStatus,
+      ministryInvolvement: formData.ministryInvolvement,
     };
     
     const fileToUpload = photoFile;
@@ -445,6 +463,9 @@ export default function Members() {
             relationship: '',
           },
           notes: '',
+          baptismStatus: '',
+          maritalStatus: '',
+          ministryInvolvement: [],
         });
         setPhotoPreview(null);
         setPhotoFile(null);
@@ -487,6 +508,9 @@ export default function Members() {
         relationship: '',
       },
       notes: '',
+      baptismStatus: '',
+      maritalStatus: '',
+      ministryInvolvement: [],
     });
     setPhotoPreview(null);
     setPhotoFile(null);
@@ -523,6 +547,9 @@ export default function Members() {
       state: member.state || '',
       zipCode: member.zipCode || '',
       notes: member.notes || '',
+      baptismStatus: member.baptismStatus || '',
+      maritalStatus: member.maritalStatus || '',
+      ministryInvolvement: member.ministryInvolvement || [],
     });
     setEditPhotoPreview(member.profileImageUrl || null);
     setEditPhotoFile(null);
@@ -568,6 +595,9 @@ export default function Members() {
       city: editForm.city,
       state: editForm.state,
       zipCode: editForm.zipCode,
+      baptismStatus: editForm.baptismStatus,
+      maritalStatus: editForm.maritalStatus,
+      ministryInvolvement: editForm.ministryInvolvement,
     };
 
     const res = await api.members.updateMember(editingMember.id, payload);
@@ -1442,462 +1472,21 @@ export default function Members() {
           className="hidden"
         />
 
-        {/* Member Detail Modal */}
-        <AnimatePresence>
-          {selectedMember && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
-              onClick={() => setSelectedMember(null)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-8 overflow-hidden relative"
-              >
-                {/* Modal Header with Gradient Background */}
-                <div className={`h-32 bg-gradient-to-r ${ministryColors[selectedMember.primaryMinistry as keyof typeof ministryColors] || 'from-stone-400 to-gray-500'} relative`}>
-                  <button
-                    onClick={() => setSelectedMember(null)}
-                    className="absolute top-4 right-4 p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors z-10"
-                  >
-                    <X className="w-5 h-5 text-white" />
-                  </button>
-                  
-                  {/* Status Badge in Header */}
-                  <div className="absolute bottom-4 right-6">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${memberStatusColors[selectedMember.status as keyof typeof memberStatusColors]} ring-2 ring-white`}>
-                      {selectedMember.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="px-8 pb-8">
-                  {/* Profile Photo and Quick Actions */}
-                  <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-12 mb-8 relative z-10">
-                    <div
-                      className={`w-32 h-32 rounded-2xl overflow-hidden flex items-center justify-center shadow-xl ring-4 ring-white shrink-0 ${
-                        selectedMember.profileImageUrl
-                          ? 'bg-stone-200'
-                          : `bg-gradient-to-br ${ministryColors[selectedMember.primaryMinistry as keyof typeof ministryColors] || 'from-stone-400 to-gray-500'} text-white font-bold text-4xl`
-                      }`}
-                    >
-                      {selectedMember.profileImageUrl ? (
-                        <img
-                          src={selectedMember.profileImageUrl}
-                          alt={selectedMember.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        memberInitials(selectedMember.name)
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 pb-2">
-                      <h2 className="text-3xl font-serif font-bold text-stone-800 leading-tight">{selectedMember.name}</h2>
-                      <p className="text-lg text-amber-600 font-medium">{selectedMember.role}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 pb-2">
-                      <a
-                        href={`tel:${selectedMember.phone}`}
-                        className="p-3 rounded-xl bg-stone-100 text-stone-600 hover:bg-amber-100 hover:text-amber-600 transition-all shadow-sm"
-                        title="Call Member"
-                      >
-                        <PhoneCall className="w-5 h-5" />
-                      </a>
-                      <a
-                        href={`mailto:${selectedMember.email}`}
-                        className="p-3 rounded-xl bg-stone-100 text-stone-600 hover:bg-amber-100 hover:text-amber-600 transition-all shadow-sm"
-                        title="Email Member"
-                      >
-                        <Mail className="w-5 h-5" />
-                      </a>
-                      {canManageMembers && (
-                        <button
-                          onClick={() => {
-                            const m = selectedMember;
-                            setSelectedMember(null);
-                            openEditMember(m);
-                          }}
-                          className="p-3 rounded-xl bg-stone-100 text-stone-600 hover:bg-amber-100 hover:text-amber-600 transition-all shadow-sm"
-                          title="Edit Profile"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                      )}
-                      {canManageMembers && (
-                        <button
-                          onClick={() => {
-                            const m = selectedMember;
-                            setSelectedMember(null);
-                            openDeleteConfirm(m);
-                          }}
-                          className="p-3 rounded-xl bg-stone-100 text-stone-600 hover:bg-red-100 hover:text-red-600 transition-all shadow-sm"
-                          title="Delete Member"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tab Navigation */}
-                  <div className="flex gap-1 p-1 bg-stone-100 rounded-xl mb-8">
-                    {(['overview', 'donations', 'attendance', 'family'] as ProfileTab[]).map((tab) => {
-                      const icons = {
-                        overview: <User className="w-4 h-4" />,
-                        donations: <HandHeart className="w-4 h-4" />,
-                        attendance: <CalendarDays className="w-4 h-4" />,
-                        family: <Users className="w-4 h-4" />,
-                      };
-                      const labels = {
-                        overview: 'Overview',
-                        donations: 'Donations',
-                        attendance: 'Attendance',
-                        family: 'Family',
-                      };
-                      return (
-                        <button
-                          key={tab}
-                          onClick={() => setActiveTab(tab)}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                            activeTab === tab
-                              ? 'bg-white text-stone-900 shadow-sm'
-                              : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
-                          }`}
-                        >
-                          {icons[tab]}
-                          {labels[tab]}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Tab Content */}
-                  <div className="min-h-[400px]">
-                    {activeTab === 'overview' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-8"
-                      >
-                        {/* Left Column: Contact & Info */}
-                        <div className="space-y-6">
-                          <section>
-                            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Contact Information</h3>
-                            <div className="space-y-4">
-                              <div className="flex items-start gap-3 group">
-                                <div className="p-2 rounded-lg bg-stone-50 text-stone-400 group-hover:text-amber-500 transition-colors">
-                                  <Mail className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400">Email Address</p>
-                                  <p className="text-sm font-medium text-stone-700">{selectedMember.email}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-3 group">
-                                <div className="p-2 rounded-lg bg-stone-50 text-stone-400 group-hover:text-amber-500 transition-colors">
-                                  <Phone className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400">Phone Number</p>
-                                  <p className="text-sm font-medium text-stone-700">{selectedMember.phone}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-3 group">
-                                <div className="p-2 rounded-lg bg-stone-50 text-stone-400 group-hover:text-amber-500 transition-colors">
-                                  <MapPin className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400">Residential Address</p>
-                                  <p className="text-sm font-medium text-stone-700 leading-relaxed">
-                                    {selectedMember.address || 'No address provided'}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </section>
-
-                          <section>
-                            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Ministry Involvement</h3>
-                            <div className="space-y-4">
-                              <div className="flex items-start gap-3 group">
-                                <div className="p-2 rounded-lg bg-stone-50 text-stone-400 group-hover:text-amber-500 transition-colors">
-                                  <Heart className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400">Primary Ministry</p>
-                                  <p className="text-sm font-medium text-stone-700">{selectedMember.primaryMinistry || 'Not assigned'}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-lg bg-stone-50 text-stone-400">
-                                  <Building2 className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400 mb-2">Departments</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {selectedMember.departments && selectedMember.departments.length > 0 ? (
-                                      selectedMember.departments.map(dept => (
-                                        <span key={dept} className="px-2 py-1 rounded-md bg-stone-100 text-stone-600 text-[10px] font-bold uppercase tracking-wider">
-                                          {dept}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-sm text-stone-400 italic">No departments</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </section>
-                        </div>
-
-                        {/* Right Column: Personal & Church Info */}
-                        <div className="space-y-6">
-                          <section>
-                            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Member Details</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="p-4 rounded-xl bg-stone-50 border border-stone-100">
-                                <Calendar className="w-4 h-4 text-amber-500 mb-2" />
-                                <p className="text-[10px] text-stone-400 uppercase font-bold">Joined</p>
-                                <p className="text-sm font-medium text-stone-700">
-                                  {new Date(selectedMember.joinDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                                </p>
-                              </div>
-                              <div className="p-4 rounded-xl bg-stone-50 border border-stone-100">
-                                <Cake className="w-4 h-4 text-rose-500 mb-2" />
-                                <p className="text-[10px] text-stone-400 uppercase font-bold">Birthday</p>
-                                <p className="text-sm font-medium text-stone-700">
-                                  {selectedMember.dateOfBirth ? new Date(selectedMember.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Not set'}
-                                </p>
-                              </div>
-                              <div className="p-4 rounded-xl bg-stone-50 border border-stone-100">
-                                <GraduationCap className="w-4 h-4 text-blue-500 mb-2" />
-                                <p className="text-[10px] text-stone-400 uppercase font-bold">Education</p>
-                                <p className="text-sm font-medium text-stone-700 truncate" title={selectedMember.education}>
-                                  {selectedMember.education || 'Not specified'}
-                                </p>
-                              </div>
-                              <div className="p-4 rounded-xl bg-stone-50 border border-stone-100">
-                                <Home className="w-4 h-4 text-teal-500 mb-2" />
-                                <p className="text-[10px] text-stone-400 uppercase font-bold">Hometown</p>
-                                <p className="text-sm font-medium text-stone-700 truncate" title={selectedMember.hometown}>
-                                  {selectedMember.hometown || 'Not specified'}
-                                </p>
-                              </div>
-                            </div>
-                          </section>
-
-                          {selectedMember.emergencyContact && (
-                            <section>
-                              <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Emergency Contact</h3>
-                              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100">
-                                <p className="text-sm font-bold text-stone-800">{selectedMember.emergencyContact.name}</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <p className="text-xs text-stone-500">{selectedMember.emergencyContact.relationship}</p>
-                                  <a href={`tel:${selectedMember.emergencyContact.phone}`} className="text-xs font-bold text-amber-600 flex items-center gap-1 hover:underline">
-                                    <Phone className="w-3 h-3" />
-                                    {selectedMember.emergencyContact.phone}
-                                  </a>
-                                </div>
-                              </div>
-                            </section>
-                          )}
-
-                          {selectedMember.notes && (
-                            <section>
-                              <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4">Administrative Notes</h3>
-                              <div className="p-4 rounded-xl bg-stone-50 border border-stone-100 italic">
-                                <p className="text-xs text-stone-600 leading-relaxed">
-                                  "{selectedMember.notes}"
-                                </p>
-                              </div>
-                            </section>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {activeTab === 'donations' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
-                      >
-                        <h3 className="text-lg font-serif font-bold text-stone-800">Donation History</h3>
-                        {tabLoading.donations ? (
-                          <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-                            <span className="ml-3 text-stone-600">Loading donations...</span>
-                          </div>
-                        ) : tabError.donations ? (
-                          <div className="text-center py-12">
-                            <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                            <p className="text-stone-600">{tabError.donations}</p>
-                          </div>
-                        ) : tabCache[`${selectedMember.id}-donations` as keyof TabCache]?.length ? (
-                          <div className="space-y-3">
-                            {(tabCache[`${selectedMember.id}-donations` as keyof TabCache] as Donation[]).map((donation) => (
-                              <div key={donation.id} className="p-4 rounded-xl bg-stone-50 border border-stone-100 hover:border-amber-200 transition-colors">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <span className="text-lg font-bold text-emerald-600">${donation.amount.toLocaleString()}</span>
-                                      <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-                                        {donation.fundType}
-                                      </span>
-                                      {donation.isRecurring && (
-                                        <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-                                          Recurring ({donation.recurringFrequency})
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xs text-stone-400">
-                                        {new Date(donation.date).toLocaleDateString('en-US', { 
-                                          year: 'numeric', 
-                                          month: 'short', 
-                                          day: 'numeric' 
-                                        })}
-                                      </p>
-                                      <p className="text-xs text-stone-500">{donation.paymentMethod}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                                {donation.notes && (
-                                  <p className="text-xs text-stone-500 mt-2 italic">"{donation.notes}"</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-12">
-                            <HandHeart className="w-12 h-12 text-stone-300 mx-auto mb-4" />
-                            <p className="text-stone-600">No donation records found</p>
-                            <p className="text-sm text-stone-400 mt-1">Donations made by this member will appear here</p>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-
-                    {activeTab === 'attendance' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
-                      >
-                        <h3 className="text-lg font-serif font-bold text-stone-800">Attendance History</h3>
-                        {tabLoading.attendance ? (
-                          <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-                            <span className="ml-3 text-stone-600">Loading attendance records...</span>
-                          </div>
-                        ) : tabError.attendance ? (
-                          <div className="text-center py-12">
-                            <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                            <p className="text-stone-600">{tabError.attendance}</p>
-                          </div>
-                        ) : tabCache[`${selectedMember.id}-attendance` as keyof TabCache]?.length ? (
-                          <div className="space-y-3">
-                            {(tabCache[`${selectedMember.id}-attendance` as keyof TabCache] as Attendance[]).map((record) => (
-                              <div key={record.id} className="p-4 rounded-xl bg-stone-50 border border-stone-100 hover:border-amber-200 transition-colors">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                        record.status === 'present' ? 'bg-emerald-100 text-emerald-700' :
-                                        record.status === 'late' ? 'bg-amber-100 text-amber-700' :
-                                        record.status === 'excused' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-rose-100 text-rose-700'
-                                      }`}>
-                                        {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                                      </span>
-                                      <span className="font-medium text-stone-800">{record.eventName}</span>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xs text-stone-400">
-                                        {new Date(record.date).toLocaleDateString('en-US', { 
-                                          year: 'numeric', 
-                                          month: 'short', 
-                                          day: 'numeric' 
-                                        })}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                                {record.notes && (
-                                  <p className="text-xs text-stone-500 mt-2 italic">"{record.notes}"</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-12">
-                            <CalendarDays className="w-12 h-12 text-stone-300 mx-auto mb-4" />
-                            <p className="text-stone-600">No attendance records found</p>
-                            <p className="text-sm text-stone-400 mt-1">Event attendance for this member will appear here</p>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-
-                    {activeTab === 'family' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
-                      >
-                        <h3 className="text-lg font-serif font-bold text-stone-800">Family Information</h3>
-                        {tabLoading.family ? (
-                          <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-                            <span className="ml-3 text-stone-600">Loading family information...</span>
-                          </div>
-                        ) : tabError.family ? (
-                          <div className="text-center py-12">
-                            <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                            <p className="text-stone-600">{tabError.family}</p>
-                          </div>
-                        ) : (
-                          <div className="text-center py-12">
-                            <Users className="w-12 h-12 text-stone-300 mx-auto mb-4" />
-                            <p className="text-stone-600">Family information not available</p>
-                            <p className="text-sm text-stone-400 mt-1">Family relationships and contacts will appear here</p>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </div>
-
-                  <div className="mt-8 pt-6 border-t border-stone-100 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedMember(null)}
-                      className="text-sm font-bold text-stone-400 hover:text-stone-600 transition-colors flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Close Details
-                    </button>
-                    
-                    <button
-                      type="button"
-                      className="px-6 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-bold shadow-lg shadow-stone-900/20 hover:bg-stone-800 transition-all flex items-center gap-2"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Send Message
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Member Profile Modal */}
+        {selectedMember && (
+          <MemberProfileModal
+            member={selectedMember}
+            activeTab={activeTab}
+            tabCache={tabCache}
+            tabLoading={tabLoading}
+            tabError={tabError}
+            canManage={canManageMembers}
+            onClose={() => setSelectedMember(null)}
+            onEdit={(m) => { setSelectedMember(null); openEditMember(m); }}
+            onDelete={(m) => { setSelectedMember(null); openDeleteConfirm(m); }}
+            onTabChange={setActiveTab}
+          />
+        )}
 
         {/* Edit Member Modal */}
         <AnimatePresence>
@@ -2507,6 +2096,50 @@ export default function Members() {
                           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                         </div>
                       </div>
+
+                      {/* Marital Status */}
+                      <div>
+                        <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                          Marital Status
+                        </label>
+                        <div className="relative">
+                          <Heart className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                          <select
+                            value={formData.maritalStatus}
+                            onChange={(e) => handleInputChange('maritalStatus', e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                          >
+                            <option value="">Select marital status...</option>
+                            {maritalStatusOptions.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Baptism Status */}
+                      <div>
+                        <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                          Baptism Status
+                        </label>
+                        <div className="flex gap-2">
+                          {baptismStatusOptions.map(option => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleInputChange('baptismStatus', option)}
+                              className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                                formData.baptismStatus === option
+                                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -2705,6 +2338,67 @@ export default function Members() {
                           {formErrors.departments}
                         </p>
                       )}
+                    </div>
+
+                    {/* Ministry Involvement */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                        Ministry Involvement
+                        <span className="text-xs text-stone-400 font-normal ml-2">(Select all that apply)</span>
+                      </label>
+
+                      {/* Selected ministries */}
+                      {formData.ministryInvolvement.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {formData.ministryInvolvement.map(m => (
+                            <motion.span
+                              key={m}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border bg-amber-50 text-amber-700 border-amber-200"
+                            >
+                              {m}
+                              <button
+                                type="button"
+                                onClick={() => handleInputChange('ministryInvolvement', formData.ministryInvolvement.filter(x => x !== m))}
+                                className="hover:bg-white/50 rounded-full p-0.5 transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </motion.span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {ministryOptions.map(ministry => {
+                          const selected = formData.ministryInvolvement.includes(ministry);
+                          return (
+                            <button
+                              key={ministry}
+                              type="button"
+                              onClick={() => {
+                                const next = selected
+                                  ? formData.ministryInvolvement.filter(x => x !== ministry)
+                                  : [...formData.ministryInvolvement, ministry];
+                                handleInputChange('ministryInvolvement', next);
+                              }}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                                selected
+                                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                selected ? 'bg-amber-500 border-amber-500' : 'border-stone-300'
+                              }`}>
+                                {selected && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                              <span className="truncate">{ministry}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

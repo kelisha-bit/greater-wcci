@@ -35,30 +35,40 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
       errorClassName = '',
       disabled,
       type = 'text',
+      id,
+      name,
       ...props
     },
     ref
   ) => {
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
+    const fieldId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const errorId = `${fieldId}-error`;
+    const helperId = `${fieldId}-helper`;
 
     return (
       <div className={`w-full ${containerClassName}`}>
         {label && (
           <label
-            htmlFor={props.id || props.name}
+            htmlFor={fieldId}
             className={`block text-sm font-medium text-gray-700 mb-1 ${labelClassName}`}
           >
             {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
           </label>
         )}
 
         <div className="relative">
           <input
             ref={ref}
+            id={fieldId}
+            name={name}
             type={type}
             disabled={isDisabled}
+            aria-invalid={isError}
+            aria-describedby={isError ? errorId : helperText ? helperId : undefined}
+            aria-required={required}
             className={`
               w-full px-3 py-2 border rounded-lg
               text-gray-900 placeholder-gray-400
@@ -77,21 +87,21 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
             {...props}
           />
           {icon && (
-            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
               {icon}
             </div>
           )}
         </div>
 
         {isError && (
-          <div className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`}>
-            <AlertCircle size={14} className="flex-shrink-0" />
+          <div id={errorId} className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`} role="alert">
+            <AlertCircle size={14} className="flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {helperText && !isError && (
-          <p className="mt-1 text-xs text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-1 text-xs text-gray-500">{helperText}</p>
         )}
       </div>
     );
@@ -138,28 +148,38 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
       selectClassName = '',
       errorClassName = '',
       disabled,
+      id,
+      name,
       ...props
     },
     ref
   ) => {
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
+    const fieldId = id || name || `select-${Math.random().toString(36).substr(2, 9)}`;
+    const errorId = `${fieldId}-error`;
+    const helperId = `${fieldId}-helper`;
 
     return (
       <div className={`w-full ${containerClassName}`}>
         {label && (
           <label
-            htmlFor={props.id || props.name}
+            htmlFor={fieldId}
             className={`block text-sm font-medium text-gray-700 mb-1 ${labelClassName}`}
           >
             {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
           </label>
         )}
 
         <select
           ref={ref}
+          id={fieldId}
+          name={name}
           disabled={isDisabled}
+          aria-invalid={isError}
+          aria-describedby={isError ? errorId : helperText ? helperId : undefined}
+          aria-required={required}
           className={`
             w-full px-3 py-2 border rounded-lg
             text-gray-900 bg-white
@@ -185,14 +205,14 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
         </select>
 
         {isError && (
-          <div className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`}>
-            <AlertCircle size={14} className="flex-shrink-0" />
+          <div id={errorId} className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`} role="alert">
+            <AlertCircle size={14} className="flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {helperText && !isError && (
-          <p className="mt-1 text-xs text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-1 text-xs text-gray-500">{helperText}</p>
         )}
       </div>
     );
@@ -234,26 +254,31 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
       textareaClassName = '',
       errorClassName = '',
       disabled,
+      id,
+      name,
       ...props
     },
     ref
   ) => {
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
+    const fieldId = id || name || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+    const errorId = `${fieldId}-error`;
+    const helperId = `${fieldId}-helper`;
 
     return (
       <div className={`w-full ${containerClassName}`}>
         {label && (
           <div className="flex justify-between items-start mb-1">
             <label
-              htmlFor={props.id || props.name}
+              htmlFor={fieldId}
               className={`block text-sm font-medium text-gray-700 ${labelClassName}`}
             >
               {label}
-              {required && <span className="text-red-500 ml-1">*</span>}
+              {required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
             </label>
             {maxCharCount !== undefined && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500" aria-live="polite">
                 {charCount || 0}/{maxCharCount}
               </span>
             )}
@@ -262,7 +287,12 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
 
         <textarea
           ref={ref}
+          id={fieldId}
+          name={name}
           disabled={isDisabled}
+          aria-invalid={isError}
+          aria-describedby={isError ? errorId : helperText ? helperId : undefined}
+          aria-required={required}
           className={`
             w-full px-3 py-2 border rounded-lg
             text-gray-900 placeholder-gray-400
@@ -281,14 +311,14 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
         />
 
         {isError && (
-          <div className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`}>
-            <AlertCircle size={14} className="flex-shrink-0" />
+          <div id={errorId} className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`} role="alert">
+            <AlertCircle size={14} className="flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {helperText && !isError && (
-          <p className="mt-1 text-xs text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-1 text-xs text-gray-500">{helperText}</p>
         )}
       </div>
     );
@@ -322,19 +352,28 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, FormCheckboxProps
       checkboxClassName = '',
       errorClassName = '',
       disabled,
+      id,
+      name,
       ...props
     },
     ref
   ) => {
     const isError = Boolean(error);
+    const fieldId = id || name || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
+    const errorId = `${fieldId}-error`;
+    const helperId = `${fieldId}-helper`;
 
     return (
       <div className={`w-full ${containerClassName}`}>
         <div className="flex items-start">
           <input
             ref={ref}
+            id={fieldId}
+            name={name}
             type="checkbox"
             disabled={disabled}
+            aria-invalid={isError}
+            aria-describedby={isError ? errorId : helperText ? helperId : undefined}
             className={`
               h-4 w-4 mt-1 rounded border-gray-300
               text-blue-600 focus:ring-blue-500
@@ -345,7 +384,7 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, FormCheckboxProps
           />
           {label && (
             <label
-              htmlFor={props.id || props.name}
+              htmlFor={fieldId}
               className={`ml-2 text-sm text-gray-700 ${labelClassName}`}
             >
               {label}
@@ -354,14 +393,14 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, FormCheckboxProps
         </div>
 
         {isError && (
-          <div className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`}>
-            <AlertCircle size={14} className="flex-shrink-0" />
+          <div id={errorId} className={`flex items-center gap-1 mt-1 text-sm text-red-500 ${errorClassName}`} role="alert">
+            <AlertCircle size={14} className="flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {helperText && !isError && (
-          <p className="mt-2 text-xs text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-2 text-xs text-gray-500">{helperText}</p>
         )}
       </div>
     );

@@ -57,52 +57,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** Fetch role flags from the DB. Fails closed — no elevated access on error. */
+  const fetchRoleFlags = useCallback(async (cancelled: { current: boolean }) => {
+    try {
+      const flags = await supabaseAuthApi.getRoleFlags();
+      if (!cancelled.current) {
+        setRoleFlags({
+          isAdmin: flags.isAdmin,
+          isStaff: flags.isStaff,
+          isAdminOrStaff: flags.isAdminOrStaff,
+        });
+      }
+    } catch {
+      // Fail closed: deny elevated access when role check fails
+      if (!cancelled.current) {
+        setRoleFlags({ isAdmin: false, isStaff: false, isAdminOrStaff: false });
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
+    const cancelled = { current: false };
 
     const initializeAuth = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
-        if (cancelled) return;
+        if (cancelled.current) return;
 
         setSession(s);
 
         if (s?.user?.email) {
           await fetchProfile();
-          try {
-            const flags = await supabaseAuthApi.getRoleFlags();
-            if (!cancelled) {
-              setRoleFlags({
-                isAdmin: flags.isAdmin,
-                isStaff: flags.isStaff,
-                isAdminOrStaff: flags.isAdminOrStaff,
-              });
-            }
-          } catch {
-            const fallbackRoleRaw = profile?.role || s.user?.user_metadata?.role || 'member';
-            const fallbackRole = typeof fallbackRoleRaw === 'string' ? fallbackRoleRaw.toLowerCase() : fallbackRoleRaw;
-            const fallbackIsAdmin = fallbackRole === 'admin';
-            const fallbackIsStaff = fallbackRole === 'staff';
-            if (!cancelled) {
-              setRoleFlags({
-                isAdmin: fallbackIsAdmin,
-                isStaff: fallbackIsStaff,
-                isAdminOrStaff: fallbackIsAdmin || fallbackIsStaff,
-              });
-            }
-          }
+          await fetchRoleFlags(cancelled);
         } else {
           setProfile(null);
-          setRoleFlags({
-            isAdmin: false,
-            isStaff: false,
-            isAdminOrStaff: false,
-          });
+          setRoleFlags({ isAdmin: false, isStaff: false, isAdminOrStaff: false });
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        if (!cancelled) {
+        if (!cancelled.current) {
           setLoading(false);
         }
       }
@@ -114,43 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: string, s: Session | null) => {
-      if (cancelled) return;
+      if (cancelled.current) return;
 
       setSession(s);
 
       if (s?.user?.email) {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           await fetchProfile();
-          try {
-            const flags = await supabaseAuthApi.getRoleFlags();
-            if (!cancelled) {
-              setRoleFlags({
-                isAdmin: flags.isAdmin,
-                isStaff: flags.isStaff,
-                isAdminOrStaff: flags.isAdminOrStaff,
-              });
-            }
-          } catch {
-            const fallbackRoleRaw = profile?.role || s.user?.user_metadata?.role || 'member';
-            const fallbackRole = typeof fallbackRoleRaw === 'string' ? fallbackRoleRaw.toLowerCase() : fallbackRoleRaw;
-            const fallbackIsAdmin = fallbackRole === 'admin';
-            const fallbackIsStaff = fallbackRole === 'staff';
-            if (!cancelled) {
-              setRoleFlags({
-                isAdmin: fallbackIsAdmin,
-                isStaff: fallbackIsStaff,
-                isAdminOrStaff: fallbackIsAdmin || fallbackIsStaff,
-              });
-            }
-          }
+          await fetchRoleFlags(cancelled);
         }
       } else {
         setProfile(null);
-        setRoleFlags({
-          isAdmin: false,
-          isStaff: false,
-          isAdminOrStaff: false,
-        });
+        setRoleFlags({ isAdmin: false, isStaff: false, isAdminOrStaff: false });
       }
 
       // Ensure loading is false after handling the auth event
@@ -158,10 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      cancelled = true;
+      cancelled.current = true;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, fetchRoleFlags]);
 
   const signOut = useCallback(async () => {
     try {

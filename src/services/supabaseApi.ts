@@ -46,6 +46,24 @@ type ReportInsert = Tables['reports']['Insert']
 type SettingRow = Tables['settings']['Row']
 type SettingUpdate = Tables['settings']['Update']
 
+function localDayBoundsIso(dateStr: string): { start: string; endExclusive: string } {
+  // Interpret YYYY-MM-DD as a local calendar day, then convert that local midnight range
+  // into ISO instants for querying timestamptz columns.
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0)
+  const endLocal = new Date(startLocal)
+  endLocal.setDate(startLocal.getDate() + 1)
+  return { start: startLocal.toISOString(), endExclusive: endLocal.toISOString() }
+}
+
+function isoToLocalYyyyMmDd(iso: string): string {
+  const dt = new Date(iso)
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // ============================================================================
 // AUTHENTICATION API
 // ============================================================================
@@ -487,11 +505,8 @@ export const supabaseAttendanceApi = {
     }
 
     if (options?.date) {
-      const dayStart = `${options.date}T00:00:00.000Z`
-      const dayEndExclusive = new Date(
-        new Date(dayStart).getTime() + 24 * 60 * 60 * 1000
-      ).toISOString()
-      query = query.gte('check_in_time', dayStart).lt('check_in_time', dayEndExclusive)
+      const { start, endExclusive } = localDayBoundsIso(options.date)
+      query = query.gte('check_in_time', start).lt('check_in_time', endExclusive)
     }
 
     if (options?.limit) {
@@ -509,13 +524,20 @@ export const supabaseAttendanceApi = {
    * Record attendance with conflict handling
    */
   async recordAttendance(attendance: AttendanceInsert): Promise<AttendanceRow> {
-    // First, try to find existing record for this member, event, and date
+    // First, try to find an existing record for this member+event on the same local day.
+    // (Exact timestamp matches are too strict and allow duplicates that break reporting.)
+    const localDay = attendance.check_in_time
+      ? isoToLocalYyyyMmDd(String(attendance.check_in_time))
+      : isoToLocalYyyyMmDd(new Date().toISOString())
+    const { start, endExclusive } = localDayBoundsIso(localDay)
+
     const { data: existing, error: fetchError } = await supabase
       .from('attendance')
       .select()
       .eq('member_id', attendance.member_id)
       .eq('event_id', attendance.event_id)
-      .eq('check_in_time', attendance.check_in_time)
+      .gte('check_in_time', start)
+      .lt('check_in_time', endExclusive)
       .maybeSingle()
 
     if (fetchError && fetchError.code !== 'PGRST116') {
@@ -1109,23 +1131,49 @@ export const supabaseMinistriesApi = {
 
     if (error) throw error
 
-    const { data: links, error: linkErr } = await supabase
-      .from('member_ministries')
-      .select('ministry_id')
+    // If the ministries table has rows, use the relational member_ministries counts
+    if (mins && mins.length > 0) {
+      const { data: links, error: linkErr } = await supabase
+        .from('member_ministries')
+        .select('ministry_id')
 
-    if (linkErr) throw linkErr
+      if (linkErr) throw linkErr
 
-    const counts = new Map<string, number>()
-    for (const row of links || []) {
-      const id = row.ministry_id as string
-      counts.set(id, (counts.get(id) || 0) + 1)
+      const counts = new Map<string, number>()
+      for (const row of links || []) {
+        const id = row.ministry_id as string
+        counts.set(id, (counts.get(id) || 0) + 1)
+      }
+
+      return mins.map((m: { id: string; name: string }) => ({
+        id: m.id,
+        name: m.name,
+        memberCount: counts.get(m.id) || 0,
+      }))
     }
 
-    return (mins || []).map((m: { id: string; name: string }) => ({
-      id: m.id,
-      name: m.name,
-      memberCount: counts.get(m.id) || 0,
-    }))
+    // Fallback: aggregate primary_ministry directly from the members table
+    const { data: members, error: membersErr } = await supabase
+      .from('members')
+      .select('primary_ministry')
+      .not('primary_ministry', 'is', null)
+      .neq('primary_ministry', '')
+
+    if (membersErr) throw membersErr
+
+    const counts = new Map<string, number>()
+    for (const row of members || []) {
+      const name = row.primary_ministry as string
+      if (name) counts.set(name, (counts.get(name) || 0) + 1)
+    }
+
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, memberCount]) => ({
+        id: name, // use name as synthetic id since there's no ministries row
+        name,
+        memberCount,
+      }))
   },
 
   async countMemberMinistryLinks(): Promise<number> {

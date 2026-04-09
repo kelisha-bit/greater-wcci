@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
 import StatsCard from '../components/StatsCard';
@@ -13,6 +13,7 @@ import MinistryGroups from '../components/MinistryGroups';
 import { membersApi, attendanceApi, donationsApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { CardGridSkeleton, ChartSkeleton } from '../components/LoadingStates';
+import { useErrorHandler } from '../hooks/useErrorHandler';
 
 interface DashboardStats {
   totalMembers: number;
@@ -32,6 +33,9 @@ function pctChange(current: number, previous: number): number {
 
 export default function Dashboard() {
   const { profile, user } = useAuth();
+  const { handleError } = useErrorHandler();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
     sundayAttendance: 0,
@@ -47,7 +51,6 @@ export default function Dashboard() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
 
       const now = new Date();
@@ -125,20 +128,26 @@ export default function Dashboard() {
         volunteersChange: 0,
       });
     } catch (err) {
-      console.error('Dashboard data fetch error:', err);
+      handleError(err, { context: 'Dashboard data fetch', showNotification: false });
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleError]);
 
+  // Initial load
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Polling with proper cleanup
   useEffect(() => {
-    const interval = setInterval(fetchDashboardData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(fetchDashboardData, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [fetchDashboardData]);
 
   const displayName =
@@ -238,7 +247,7 @@ export default function Dashboard() {
             <StatsCard
               title="Monthly Donations"
               value={stats.monthlyDonations}
-              prefix="$"
+              prefix="GH₵"
               change={stats.donationsChange}
               icon="gift"
               color="emerald"

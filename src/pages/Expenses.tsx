@@ -475,9 +475,9 @@ export default function Expenses() {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-GH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'GHS',
     }).format(amount);
   };
 
@@ -631,7 +631,7 @@ export default function Expenses() {
               <BarChart data={monthlyTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="month" stroke="#6B7280" fontSize={12} />
-                <YAxis stroke="#6B7280" fontSize={12} tickFormatter={(value) => `$${value}`} />
+                <YAxis stroke="#6B7280" fontSize={12} tickFormatter={(value) => `GH₵${value}`} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Bar dataKey="amount" fill="#EF4444" radius={[4, 4, 0, 0]} />
               </BarChart>

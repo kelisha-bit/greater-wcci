@@ -94,6 +94,9 @@ export interface Member {
   zipCode?: string;
   createdAt?: string;
   ministries?: MemberMinistryLink[];
+  baptismStatus?: string;
+  maritalStatus?: string;
+  ministryInvolvement?: string[];
 }
 
 export interface MemberCreateInput extends Omit<Member, 'id' | 'ministries'> {
@@ -243,10 +246,38 @@ export interface PaginatedResponse<T> {
 // MEMBER API (Supabase integration)
 // ============================================================================
 
+/** Minimal shape of a raw member row from the database */
+interface MemberRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string | null;
+  membership_status?: string | null;
+  role?: string | null;
+  primary_ministry?: string | null;
+  join_date?: string | null;
+  date_of_birth?: string | null;
+  departments?: string[] | null;
+  education?: string | null;
+  hometown?: string | null;
+  occupation?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relationship?: string | null;
+  notes?: string | null;
+  profile_image_url?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  created_at?: string | null;
+}
+
 /**
  * Transform database row to Member interface
  */
-function transformMemberRow(row: any): Member {
+function transformMemberRow(row: MemberRow): Member {
   return {
     id: row.id,
     name: `${row.first_name} ${row.last_name}`,
@@ -495,8 +526,16 @@ export const membersApi = {
 
   /**
    * Upload profile image to Storage (bucket `member-photos`) and save URL on the member row.
+   * Only JPEG, PNG, WebP, and GIF files are accepted (max 5 MB enforced by caller).
    */
   async uploadAndSetProfilePhoto(memberId: string, file: File): Promise<ApiResponse<Member>> {
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return {
+        success: false,
+        error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.',
+      };
+    }
     try {
       const url = await supabaseApi.storage.uploadMemberProfilePhoto(memberId, file);
       return membersApi.updateMember(memberId, { profileImageUrl: url });

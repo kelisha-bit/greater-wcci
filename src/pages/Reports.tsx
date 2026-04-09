@@ -29,6 +29,7 @@ import {
   eventsApi,
   expensesApi,
   type Donation,
+  type Expense,
   type Report,
 } from '../services/api';
 import {
@@ -114,6 +115,11 @@ function sumDonations(rows: Donation[] | undefined): number {
   return rows.reduce((s, d) => s + Number(d.amount), 0);
 }
 
+function sumExpenses(rows: Expense[] | undefined): number {
+  if (!rows?.length) return 0;
+  return rows.reduce((s, e) => s + Number(e.amount), 0);
+}
+
 const MONTH_NAMES = [
   'Jan',
   'Feb',
@@ -166,6 +172,67 @@ function buildGivingChartData(
     totals[dt.getMonth()] += Number(d.amount);
   }
   return MONTH_NAMES.map((name, i) => ({ name, amount: totals[i] }));
+}
+
+function buildExpenseChartData(
+  expenses: Expense[] | undefined,
+  range: DateRangeKey,
+  ref = new Date()
+): { name: string; amount: number }[] {
+  const y = ref.getFullYear();
+  const m = ref.getMonth();
+  const rows = expenses ?? [];
+
+  if (range === 'month') {
+    const total = sumExpenses(rows);
+    return [{ name: MONTH_NAMES[m], amount: total }];
+  }
+
+  if (range === 'quarter') {
+    const qStart = Math.floor(m / 3) * 3;
+    const buckets = [0, 0, 0];
+    for (const e of rows) {
+      const dt = new Date(e.date);
+      if (Number.isNaN(dt.getTime()) || dt.getFullYear() !== y) continue;
+      const mi = dt.getMonth();
+      if (mi < qStart || mi >= qStart + 3) continue;
+      buckets[mi - qStart] += Number(e.amount);
+    }
+    return [0, 1, 2].map((i) => ({
+      name: MONTH_NAMES[qStart + i],
+      amount: buckets[i],
+    }));
+  }
+
+  const totals = Array(12).fill(0) as number[];
+  for (const e of rows) {
+    const dt = new Date(e.date);
+    if (Number.isNaN(dt.getTime()) || dt.getFullYear() !== y) continue;
+    totals[dt.getMonth()] += Number(e.amount);
+  }
+  return MONTH_NAMES.map((name, i) => ({ name, amount: totals[i] }));
+}
+
+function buildIncomeVsExpenseChartData(
+  donations: Donation[] | undefined,
+  expenses: Expense[] | undefined,
+  range: DateRangeKey
+): { name: string; income: number; expenses: number; net: number }[] {
+  const income = buildGivingChartData(donations, range);
+  const exp = buildExpenseChartData(expenses, range);
+  const byName = new Map<string, { income: number; expenses: number }>();
+  for (const r of income) byName.set(r.name, { income: r.amount, expenses: 0 });
+  for (const r of exp) {
+    const existing = byName.get(r.name);
+    if (existing) existing.expenses = r.amount;
+    else byName.set(r.name, { income: 0, expenses: r.amount });
+  }
+  return Array.from(byName.entries()).map(([name, v]) => ({
+    name,
+    income: v.income,
+    expenses: v.expenses,
+    net: v.income - v.expenses,
+  }));
 }
 
 function sliceAttendanceTrend(
@@ -345,6 +412,9 @@ export default function Reports() {
     { name: string; attendance: number; visitors: number }[]
   >([]);
   const [givingChart, setGivingChart] = useState<{ name: string; amount: number }[]>([]);
+  const [incomeVsExpenseChart, setIncomeVsExpenseChart] = useState<
+    { name: string; income: number; expenses: number; net: number }[]
+  >([]);
   const [demographicsData, setDemographicsData] = useState<
     { name: string; value: number; color: string }[]
   >([]);
@@ -368,6 +438,7 @@ export default function Reports() {
         presentPrevRes,
         donationsCurrRes,
         donationsPrevRes,
+        expensesCurrRes,
         trendRes,
         demoRes,
         minRes,
@@ -387,6 +458,11 @@ export default function Reports() {
         donationsApi.getDonations({
           dateFrom: previous.from,
           dateTo: previous.to,
+          pageSize: 15000,
+        }),
+        expensesApi.getExpenses({
+          dateFrom: current.from,
+          dateTo: current.to,
           pageSize: 15000,
         }),
         attendanceApi.getMonthlyAttendanceTrend(year),
@@ -469,6 +545,13 @@ export default function Reports() {
       setAttendanceTrend(sliceAttendanceTrend(trend, dateRange));
 
       setGivingChart(buildGivingChartData(donationsCurrRes.data, dateRange));
+      setIncomeVsExpenseChart(
+        buildIncomeVsExpenseChartData(
+          donationsCurrRes.data,
+          expensesCurrRes.success ? expensesCurrRes.data : undefined,
+          dateRange
+        )
+      );
 
       if (demoRes.success && demoRes.data) {
         setDemographicsData(demoRes.data);
@@ -816,7 +899,7 @@ export default function Reports() {
                                 <div className="bg-white/95 backdrop-blur-sm border border-stone-200 rounded-xl p-3 shadow-xl">
                                   <p className="font-semibold text-stone-800 mb-2">{label}</p>
                                   <p className="text-sm text-emerald-600">
-                                    ${Number(payload[0].value).toLocaleString()}
+                                    GH₵{Number(payload[0].value).toLocaleString()}
                                   </p>
                                 </div>
                               );
@@ -1016,6 +1099,66 @@ export default function Reports() {
                   <PiggyBank className="w-5 h-5 text-emerald-600" />
                   Finance Breakdown
                 </h2>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/80 backdrop-blur-xl rounded-xl border border-stone-200/50 p-6 mb-4"
+                >
+                  <h3 className="text-lg font-serif font-bold text-stone-800 mb-1">
+                    Income vs Expenses
+                  </h3>
+                  <p className="text-sm text-stone-500 mb-4">
+                    Donations (income) compared to recorded expenses ({rangeLabel})
+                  </p>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={incomeVsExpenseChart}
+                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#78716c', fontSize: 12 }}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#78716c', fontSize: 12 }}
+                          tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              const income = Number(payload.find((p) => p.dataKey === 'income')?.value ?? 0);
+                              const expenses = Number(payload.find((p) => p.dataKey === 'expenses')?.value ?? 0);
+                              const net = income - expenses;
+                              return (
+                                <div className="bg-white/95 backdrop-blur-sm border border-stone-200 rounded-xl p-3 shadow-xl">
+                                  <p className="font-semibold text-stone-800 mb-2">{label}</p>
+                                  <p className="text-sm text-emerald-600">
+                                    Income: GH₵{income.toLocaleString()}
+                                  </p>
+                                  <p className="text-sm text-amber-700">
+                                    Expenses: GH₵{expenses.toLocaleString()}
+                                  </p>
+                                  <p className={`text-sm font-medium ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                    Net: GH₵{net.toLocaleString()}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expenses" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </motion.div>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1044,7 +1187,7 @@ export default function Reports() {
                       </div>
                       <div>
                         <p className="text-xs text-stone-500">Average Donation</p>
-                        <p className="text-xl font-bold text-stone-800">${avgDonation.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-stone-800">GH₵{avgDonation.toLocaleString()}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -1185,7 +1328,7 @@ export default function Reports() {
                             <span className="text-stone-600 truncate">{item.name}</span>
                           </div>
                           <span className="font-medium text-stone-800 shrink-0">
-                            ${item.amount.toLocaleString()}
+                            GH₵{item.amount.toLocaleString()}
                           </span>
                         </div>
                       ))}
@@ -1380,7 +1523,7 @@ export default function Reports() {
                             <p className="text-xs text-stone-500">{donor.count} donations</p>
                           </div>
                           <p className="font-bold text-emerald-600 text-sm">
-                            ${donor.amount.toLocaleString()}
+                            GH₵{donor.amount.toLocaleString()}
                           </p>
                         </div>
                       ))}

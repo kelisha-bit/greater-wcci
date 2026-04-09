@@ -97,7 +97,7 @@ export default defineConfig(async () => {
         ],
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ];

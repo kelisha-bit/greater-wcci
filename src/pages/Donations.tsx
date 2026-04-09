@@ -453,7 +453,7 @@ export default function Donations() {
       `Date: ${new Date(d.date).toLocaleDateString()}`,
       `Donor: ${d.donorName || 'Anonymous'}`,
       `Email: ${d.donorEmail || '-'}`,
-      `Amount: $${Number(d.amount).toLocaleString()}`,
+      `Amount: GH₵${Number(d.amount).toLocaleString()}`,
       `Fund: ${d.fundType}`,
       `Method: ${d.paymentMethod}`,
       d.reference ? `Reference: ${d.reference}` : '',
@@ -665,7 +665,7 @@ export default function Donations() {
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-stone-800">${filteredTotal.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-stone-800">GH₵{filteredTotal.toLocaleString()}</p>
                 <p className="text-xs text-stone-500">{periodLabel}</p>
               </div>
             </div>
@@ -681,7 +681,7 @@ export default function Donations() {
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-stone-800">${recurringTotal.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-stone-800">GH₵{recurringTotal.toLocaleString()}</p>
                 <p className="text-xs text-stone-500">Recurring ({recurringCount})</p>
               </div>
             </div>
@@ -713,7 +713,7 @@ export default function Donations() {
                 <Gift className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-stone-800">${averageDonation.toFixed(0)}</p>
+                <p className="text-2xl font-bold text-stone-800">GH₵{averageDonation.toFixed(0)}</p>
                 <p className="text-xs text-stone-500">Avg Gift</p>
               </div>
             </div>
@@ -734,14 +734,14 @@ export default function Donations() {
                 <BarChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} tickFormatter={(v) => v >= 1000 ? `$${v/1000}k` : `$${v}`} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#78716c', fontSize: 12 }} tickFormatter={(v) => v >= 1000 ? `GH₵${v/1000}k` : `GH₵${v}`} />
                   <Tooltip 
                     content={({ active, payload, label }) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-white/95 backdrop-blur-sm border border-stone-200 rounded-xl p-3 shadow-xl">
                             <p className="font-semibold text-stone-800">{label}</p>
-                            <p className="text-sm text-emerald-600">${payload[0].value?.toLocaleString()}</p>
+                            <p className="text-sm text-emerald-600">GH₵{payload[0].value?.toLocaleString()}</p>
                           </div>
                         );
                       }
@@ -787,7 +787,7 @@ export default function Donations() {
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fund.color }} />
                     <span className="text-stone-600">{fund.name}</span>
                   </div>
-                  <span className="font-medium text-stone-800">${(fund.value/1000).toFixed(1)}k</span>
+                  <span className="font-medium text-stone-800">GH₵{(fund.value/1000).toFixed(1)}k</span>
                 </div>
               ))}
             </div>
@@ -1024,7 +1024,7 @@ export default function Donations() {
                         </div>
                       </td>
                       <td className="py-3 px-6">
-                        <span className="font-semibold text-emerald-600">${donation.amount.toLocaleString()}</span>
+                        <span className="font-semibold text-emerald-600">GH₵{donation.amount.toLocaleString()}</span>
                       </td>
                       <td className="py-3 px-6">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${donationCategoryColors[donation.fundType as keyof typeof donationCategoryColors] || 'bg-stone-100 text-stone-700'}`}>
@@ -1349,7 +1349,7 @@ export default function Donations() {
                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-6">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-stone-700">Amount</span>
-                      <span className="text-2xl font-bold text-emerald-600">${Number(receiptDonation.amount).toLocaleString()}</span>
+                      <span className="text-2xl font-bold text-emerald-600">GH₵{Number(receiptDonation.amount).toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -1429,7 +1429,7 @@ export default function Donations() {
                       {donorHistory.map((d, i) => (
                         <tr key={`${d.id}-${i}`} className="border-b border-stone-50">
                           <td className="py-2 px-4 text-sm text-stone-700">{new Date(d.date).toLocaleDateString()}</td>
-                          <td className="py-2 px-4 text-sm text-stone-700">${Number(d.amount).toLocaleString()}</td>
+                          <td className="py-2 px-4 text-sm text-stone-700">GH₵{Number(d.amount).toLocaleString()}</td>
                           <td className="py-2 px-4 text-sm text-stone-700">{d.fundType}</td>
                           <td className="py-2 px-4 text-sm text-stone-700">{d.paymentMethod}</td>
                         </tr>

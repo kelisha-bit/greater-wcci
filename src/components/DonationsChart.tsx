@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
       <div className="bg-white/95 backdrop-blur-sm border border-stone-200 rounded-xl p-3 shadow-xl">
         <p className="font-semibold text-stone-800 mb-1">{label}</p>
         <p className="text-sm text-emerald-600">
-          Donations: <span className="font-medium">${payload[0]?.value?.toLocaleString()}</span>
+          Donations: <span className="font-medium">GH₵{payload[0]?.value?.toLocaleString()}</span>
         </p>
       </div>
     );
@@ -111,7 +111,7 @@ const DonationsChart = memo(function DonationsChart() {
           <p className="text-sm text-stone-500">Monthly giving trends</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-emerald-600">${totalYear.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-emerald-600">GH₵{totalYear.toLocaleString()}</p>
           <p className="text-xs text-stone-500">Total this year</p>
         </div>
       </div>
@@ -135,7 +135,7 @@ const DonationsChart = memo(function DonationsChart() {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#78716c', fontSize: 12 }}
-                tickFormatter={(value) => `$${value / 1000}k`}
+                tickFormatter={(value) => `GH₵${value / 1000}k`}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
               <Bar

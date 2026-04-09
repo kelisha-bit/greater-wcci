@@ -77,7 +77,7 @@ export default function MinistryGroups() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-serif font-bold text-stone-800">Ministry Groups</h3>
-          <p className="text-sm text-stone-500">Members linked in member_ministries</p>
+          <p className="text-sm text-stone-500">Active ministry participation</p>
         </div>
         <button
           type="button"
