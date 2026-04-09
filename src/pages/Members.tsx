@@ -26,6 +26,7 @@ import {
 } from '../constants/options';
 import { MemberCard, MemberCardSkeleton } from '../components/members';
 import { validateMemberForm } from '../utils/validation';
+import { useAuth } from '../contexts/AuthContext';
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 
@@ -46,6 +47,16 @@ interface EditMemberForm {
   joinDate: string;
   dateOfBirth: string;
   address: string;
+  role: string;
+  primaryMinistry: string;
+  departments: string[];
+  education: string;
+  hometown: string;
+  occupation: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  notes: string;
 }
 
 interface EmergencyContact {
@@ -127,6 +138,7 @@ function memberInitials(name: string): string {
 }
 
 export default function Members() {
+  const { isAdminOrStaff } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedMinistry, setSelectedMinistry] = useState<string>('all');
@@ -141,6 +153,16 @@ export default function Members() {
     joinDate: '',
     dateOfBirth: '',
     address: '',
+    role: 'Member',
+    primaryMinistry: '',
+    departments: [],
+    education: '',
+    hometown: '',
+    occupation: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    notes: '',
   });
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
   const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
@@ -156,8 +178,11 @@ export default function Members() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [departmentDropdownOpen, setDepartmentDropdownOpen] = useState(false);
-  const [canManageMembers, setCanManageMembers] = useState(false);
-  const [canManageMembersLoading, setCanManageMembersLoading] = useState(true);
+  
+  // Auth state for management permissions
+  const canManageMembers = isAdminOrStaff;
+  const canManageMembersLoading = false;
+  
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -200,28 +225,6 @@ export default function Members() {
   const { create: createMember } = useCreateMember();
   const { show: showToast } = useNotification();
 
-  useEffect(() => {
-    let cancelled = false;
-    api.auth
-      .isStaffOrAdmin()
-      .then((res) => {
-        if (cancelled) return;
-        setCanManageMembers(Boolean(res.data?.isStaffOrAdmin));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCanManageMembers(false);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setCanManageMembersLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
-  
   // Load tab data lazily per member
   const loadTabData = async (tab: ProfileTab, memberId: string) => {
     const cacheKey = `${memberId}-${tab}`;
@@ -271,14 +274,14 @@ export default function Members() {
       setTabError({ overview: null, donations: null, attendance: null, family: null });
       setTabLoading({ overview: false, donations: false, attendance: false, family: false });
     }
-  }, [selectedMember?.id]);
+  }, [selectedMember]);
 
   // Auto-load when switching tabs
   useEffect(() => {
     if (selectedMember && activeTab !== 'overview') {
       loadTabData(activeTab, selectedMember.id);
     }
-  }, [activeTab, selectedMember?.id]);
+  }, [activeTab, selectedMember, loadTabData]);
   
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
@@ -391,9 +394,13 @@ export default function Members() {
       departments: formData.departments,
       education: formData.education,
       hometown: formData.hometown,
+      occupation: formData.occupation,
       emergencyContact: formData.emergencyContact,
       notes: formData.notes,
       address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      zipCode: formData.zipCode,
     };
     
     const fileToUpload = photoFile;
@@ -506,6 +513,16 @@ export default function Members() {
       joinDate: (member.joinDate && member.joinDate.slice(0, 10)) || '',
       dateOfBirth: (member.dateOfBirth && member.dateOfBirth.slice(0, 10)) || '',
       address: member.address || '',
+      role: member.role ? member.role.charAt(0).toUpperCase() + member.role.slice(1).toLowerCase() : 'Member',
+      primaryMinistry: member.primaryMinistry || '',
+      departments: member.departments || [],
+      education: member.education || '',
+      hometown: member.hometown || '',
+      occupation: member.occupation || '',
+      city: member.city || '',
+      state: member.state || '',
+      zipCode: member.zipCode || '',
+      notes: member.notes || '',
     });
     setEditPhotoPreview(member.profileImageUrl || null);
     setEditPhotoFile(null);
@@ -520,8 +537,6 @@ export default function Members() {
     
     const result = validateMemberForm({
       ...editForm,
-      role: editingMember.role, // Use existing role since it's not in edit form
-      primaryMinistry: editingMember.primaryMinistry, // Use existing
     });
 
     if (!result.success) {
@@ -543,6 +558,16 @@ export default function Members() {
       joinDate: editForm.joinDate,
       dateOfBirth: editForm.dateOfBirth || undefined,
       address: editForm.address.trim(),
+      role: editForm.role.toLowerCase(),
+      primaryMinistry: editForm.primaryMinistry,
+      departments: editForm.departments,
+      education: editForm.education,
+      hometown: editForm.hometown,
+      occupation: editForm.occupation,
+      notes: editForm.notes,
+      city: editForm.city,
+      state: editForm.state,
+      zipCode: editForm.zipCode,
     };
 
     const res = await api.members.updateMember(editingMember.id, payload);
@@ -2060,6 +2085,51 @@ export default function Members() {
                         }
                         className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                         placeholder="Street, city, or full address"
+                      />
+                    </div>
+
+                    {/* Role & Ministry (Full Access for Admin/Staff) */}
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Church Role</label>
+                      <select
+                        value={editForm.role}
+                        onChange={(e) => setEditForm(f => ({ ...f, role: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      >
+                        {['Admin','Staff','Member','Guest'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Primary Ministry</label>
+                      <select
+                        value={editForm.primaryMinistry}
+                        onChange={(e) => setEditForm(f => ({ ...f, primaryMinistry: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      >
+                        <option value="">None</option>
+                        {ministryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Occupation</label>
+                      <input
+                        type="text"
+                        value={editForm.occupation}
+                        onChange={(e) => setEditForm(f => ({ ...f, occupation: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        placeholder="e.g. Teacher, Engineer"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">Administrative Notes</label>
+                      <textarea
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                        rows={3}
+                        className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        placeholder="Internal notes about this member..."
                       />
                     </div>
                   </div>

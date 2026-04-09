@@ -12,9 +12,11 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { useCurrentUserProfile, useMember } from '../hooks/useData';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getMemberStatusConfig } from '../constants/statusConfig';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { isAdminOrStaff } = useAuth();
   const params = useParams();
   const memberId = params.id ?? null;
   const currentUserProfile = useCurrentUserProfile();
@@ -158,14 +160,16 @@ export default function Profile() {
                       Back to Members
                     </button>
                   ) : (
-                    <button
-                      className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
-                      onClick={() => navigate('/settings')}
-                      aria-label="Edit profile information"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit Profile
-                    </button>
+                    isAdminOrStaff && (
+                      <button
+                        className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium hover:bg-stone-100 transition-colors flex items-center justify-center gap-2"
+                        onClick={() => navigate('/settings')}
+                        aria-label="Edit profile information"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Edit Profile
+                      </button>
+                    )
                   )}
                   <button
                     className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"

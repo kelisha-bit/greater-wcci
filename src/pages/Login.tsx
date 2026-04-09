@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Church, Lock, Mail } from 'lucide-react';
+import ErrorBoundary from '../components/ErrorBoundary';
 import api from '../services/api';
 
 export default function Login() {
@@ -34,7 +35,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-stone-100 p-4">
+    <ErrorBoundary>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-stone-100 p-4">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -103,5 +105,6 @@ export default function Login() {
         </form>
       </motion.div>
     </div>
+    </ErrorBoundary>
   );
 }

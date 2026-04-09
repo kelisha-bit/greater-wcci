@@ -79,7 +79,7 @@ export const isValidEmail = (email: string): boolean => {
  * @returns True if appears to be valid phone
  */
 export const isValidPhone = (phone: string): boolean => {
-  const phoneRegex = /^[\d\s\-\(\)\+]+$/;
+  const phoneRegex = /^[\d\s()+ -]+$/;
   return phoneRegex.test(phone.replace(/\s/g, ''));
 };
 

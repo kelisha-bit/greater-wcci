@@ -17,6 +17,7 @@ import {
   roleOptions, 
   ministryOptions 
 } from '../constants/options';
+import { CardGridSkeleton } from '../components/LoadingStates';
 
 interface FormData {
   firstName: string;
@@ -360,14 +361,14 @@ export default function Visitors() {
       const result = await api.members.updateMember(visitorToConvert.id, updateData);
 
       if (result.success) {
-        showNotification('success', 'Visitor converted to member successfully');
+        showNotification('success', 'Visitor converted successfully');
         setShowConvertModal(false);
         setVisitorToConvert(null);
         refetch();
       } else {
         setError(result.error || 'Failed to convert visitor');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to convert visitor');
     } finally {
       setSubmitting(false);
@@ -385,7 +386,7 @@ export default function Visitors() {
       } else {
         showNotification('error', 'Failed to delete visitor');
       }
-    } catch (err) {
+    } catch {
       showNotification('error', 'Failed to delete visitor');
     }
   };
@@ -545,23 +546,7 @@ export default function Visitors() {
 
           {/* Visitors Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl p-6 shadow-sm animate-pulse">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-stone-200 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-stone-200 rounded mb-2"></div>
-                      <div className="h-3 bg-stone-200 rounded"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-stone-200 rounded"></div>
-                    <div className="h-3 bg-stone-200 rounded"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CardGridSkeleton count={6} />
           ) : sortedAndFilteredVisitors.length === 0 ? (
             <EmptyState
               icon="users"

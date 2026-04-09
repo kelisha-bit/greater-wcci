@@ -6,6 +6,8 @@ import {
   CheckSquare, Square,
   Check, AlertCircle, FileText
 } from 'lucide-react';
+import Header from '../components/Header';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useAPI } from '../hooks/useAPI';
 import { useNotification } from '../hooks/useNotification';
 import type { Expense } from '../services/api';
@@ -63,7 +65,7 @@ export default function Expenses() {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedMethod, _setSelectedMethod] = useState('all');
+  const [selectedMethod, setSelectedMethod] = useState('all');
   const [selectedApproval, setSelectedApproval] = useState<'all' | 'approved' | 'pending'>('all');
   const [amountRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [dateRange, setDateRange] = useState({
@@ -489,16 +491,19 @@ export default function Expenses() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900">Expenses</h1>
-          <p className="text-sm text-stone-500">Track and manage church expenses</p>
-        </div>
-      </div>
-      
-      {/* Stats Cards */}
+    <>
+      <Header />
+      <ErrorBoundary>
+        <main className="p-6 lg:p-8 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-stone-900">Expenses</h1>
+              <p className="text-sm text-stone-500">Track and manage church expenses</p>
+            </div>
+          </div>
+          
+          {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -676,6 +681,18 @@ export default function Expenses() {
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
               <option value="pending">Pending</option>
+            </select>
+
+            {/* Payment Method Filter */}
+            <select
+              value={selectedMethod}
+              onChange={(e) => setSelectedMethod(e.target.value)}
+              className="px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            >
+              <option value="all">All Payment Methods</option>
+              {PAYMENT_METHODS.map(method => (
+                <option key={method.value} value={method.value}>{method.label}</option>
+              ))}
             </select>
 
             {/* Date Preset */}
@@ -1281,6 +1298,8 @@ export default function Expenses() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+        </main>
+      </ErrorBoundary>
+    </>
   );
 }

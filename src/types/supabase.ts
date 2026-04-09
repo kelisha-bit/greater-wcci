@@ -36,6 +36,7 @@ export interface Database {
           emergency_contact_phone?: string
           profile_image_url?: string
           notes?: string
+          role?: 'admin' | 'staff' | 'member' | 'guest'
         }
         Insert: {
           id?: string
@@ -59,6 +60,7 @@ export interface Database {
           emergency_contact_phone?: string
           profile_image_url?: string
           notes?: string
+          role?: 'admin' | 'staff' | 'member' | 'guest'
         }
         Update: {
           id?: string
@@ -82,6 +84,7 @@ export interface Database {
           emergency_contact_phone?: string
           profile_image_url?: string
           notes?: string
+          role?: 'admin' | 'staff' | 'member' | 'guest'
         }
       }
       events: {

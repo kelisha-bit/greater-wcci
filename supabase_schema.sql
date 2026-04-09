@@ -434,6 +434,18 @@ ALTER TABLE file_attachments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'Audit log entries are insertable by authenticated users'
+      AND tablename = 'audit_log'
+  ) THEN
+    CREATE POLICY "Audit log entries are insertable by authenticated users" ON audit_log
+      FOR INSERT
+      WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;
+
 -- Admin check for RLS: must be plpgsql (not SQL) so Postgres does not inline this into
 -- policy expressions — inlined SQL would ignore SET row_security and cause 42P17 recursion on user_roles.
 CREATE OR REPLACE FUNCTION public.is_admin_user()
@@ -619,6 +631,28 @@ DO $$ BEGIN
       AND tablename = 'announcements'
   ) THEN
     CREATE POLICY "Announcements can be managed by staff and admins" ON announcements
+      FOR ALL USING (is_admin_user());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'Reports are viewable by authenticated users'
+      AND tablename = 'reports'
+  ) THEN
+    CREATE POLICY "Reports are viewable by authenticated users" ON reports
+      FOR SELECT USING (auth.role() = 'authenticated');
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'Reports can be managed by admins only'
+      AND tablename = 'reports'
+  ) THEN
+    CREATE POLICY "Reports can be managed by admins only" ON reports
       FOR ALL USING (is_admin_user());
   END IF;
 END $$;

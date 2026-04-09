@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useAuth } from '../contexts/AuthContext';
 import { seriesColors } from '../constants/colors';
 
 const sermonsData = [
@@ -20,6 +21,7 @@ const sermonsData = [
 ];
 
 export default function Sermons() {
+  const { isAdminOrStaff } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeries, setSelectedSeries] = useState('all');
   const [playingId, setPlayingId] = useState<number | null>(null);
@@ -52,17 +54,21 @@ export default function Sermons() {
               <p className="text-stone-600 mt-1">Manage sermon library and media</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-sm font-medium hover:bg-stone-50 transition-colors flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Export
-              </button>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Sermon
-              </button>
+              {isAdminOrStaff && (
+                <>
+                  <button className="px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-sm font-medium hover:bg-stone-50 transition-colors flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    Export
+                  </button>
+                  <button 
+                    onClick={() => setShowAddModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Sermon
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </motion.div>

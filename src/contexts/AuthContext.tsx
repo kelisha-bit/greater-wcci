@@ -8,11 +8,14 @@ import {
   useEffect,
   useState,
   useMemo,
+  useCallback,
   type ReactNode,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../services/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { membersApi, type Member } from '../services/api';
+import { supabaseAuthApi } from '../services/supabaseApi';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface AuthContextValue {
   session: Session | null;
@@ -20,6 +23,9 @@ interface AuthContextValue {
   profile: Member | null;
   loading: boolean;
   profileLoading: boolean;
+  isAdmin: boolean;
+  isStaff: boolean;
+  isAdminOrStaff: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -31,8 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [roleFlags, setRoleFlags] = useState({
+    isAdmin: false,
+    isStaff: false,
+    isAdminOrStaff: false,
+  });
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setProfileLoading(true);
       const response = await membersApi.getCurrentUserProfile();
@@ -44,50 +55,133 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setProfileLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!cancelled) {
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (cancelled) return;
+
         setSession(s);
-        setLoading(false);
+
         if (s?.user?.email) {
-          fetchProfile();
+          await fetchProfile();
+          try {
+            const flags = await supabaseAuthApi.getRoleFlags();
+            if (!cancelled) {
+              setRoleFlags({
+                isAdmin: flags.isAdmin,
+                isStaff: flags.isStaff,
+                isAdminOrStaff: flags.isAdminOrStaff,
+              });
+            }
+          } catch {
+            const fallbackRoleRaw = profile?.role || s.user?.user_metadata?.role || 'member';
+            const fallbackRole = typeof fallbackRoleRaw === 'string' ? fallbackRoleRaw.toLowerCase() : fallbackRoleRaw;
+            const fallbackIsAdmin = fallbackRole === 'admin';
+            const fallbackIsStaff = fallbackRole === 'staff';
+            if (!cancelled) {
+              setRoleFlags({
+                isAdmin: fallbackIsAdmin,
+                isStaff: fallbackIsStaff,
+                isAdminOrStaff: fallbackIsAdmin || fallbackIsStaff,
+              });
+            }
+          }
+        } else {
+          setProfile(null);
+          setRoleFlags({
+            isAdmin: false,
+            isStaff: false,
+            isAdminOrStaff: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange(async (event: string, s: Session | null) => {
+      if (cancelled) return;
+
       setSession(s);
+
       if (s?.user?.email) {
-        fetchProfile();
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          await fetchProfile();
+          try {
+            const flags = await supabaseAuthApi.getRoleFlags();
+            if (!cancelled) {
+              setRoleFlags({
+                isAdmin: flags.isAdmin,
+                isStaff: flags.isStaff,
+                isAdminOrStaff: flags.isAdminOrStaff,
+              });
+            }
+          } catch {
+            const fallbackRoleRaw = profile?.role || s.user?.user_metadata?.role || 'member';
+            const fallbackRole = typeof fallbackRoleRaw === 'string' ? fallbackRoleRaw.toLowerCase() : fallbackRoleRaw;
+            const fallbackIsAdmin = fallbackRole === 'admin';
+            const fallbackIsStaff = fallbackRole === 'staff';
+            if (!cancelled) {
+              setRoleFlags({
+                isAdmin: fallbackIsAdmin,
+                isStaff: fallbackIsStaff,
+                isAdminOrStaff: fallbackIsAdmin || fallbackIsStaff,
+              });
+            }
+          }
+        }
       } else {
         setProfile(null);
+        setRoleFlags({
+          isAdmin: false,
+          isStaff: false,
+          isAdminOrStaff: false,
+        });
       }
+
+      // Ensure loading is false after handling the auth event
+      setLoading(false);
     });
 
     return () => {
       cancelled = true;
       subscription.unsubscribe();
     };
+  }, [fetchProfile]);
+
+  const signOut = useCallback(async () => {
+    try {
+      // Clear the local profile and session first for immediate UI responsiveness
+      setProfile(null);
+      setSession(null);
+      
+      // Supabase's signOut can occasionally throw a NavigatorLockAcquireTimeoutError
+      // especially in development or if multiple tabs are open.
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Sign out encountered an error during Supabase call:', error);
+    }
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-  };
-
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (session?.user?.email) {
       await fetchProfile();
     }
-  };
+  }, [session, fetchProfile]);
 
   const value = useMemo(() => ({
     session,
@@ -95,9 +189,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     profileLoading,
+    isAdmin: roleFlags.isAdmin,
+    isStaff: roleFlags.isStaff,
+    isAdminOrStaff: roleFlags.isAdminOrStaff,
     signOut,
     refreshProfile,
-  }), [session, profile, loading, profileLoading]);
+  }), [session, profile, loading, profileLoading, roleFlags, signOut, refreshProfile]);
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-stone-200 p-8 text-center">
+          <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 text-rose-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-stone-900 mb-3">Configuration Missing</h1>
+          <p className="text-stone-600 mb-8 leading-relaxed">
+            Supabase environment variables are missing. Please ensure your <code className="bg-stone-100 px-1.5 py-0.5 rounded text-rose-600 font-mono text-sm">.env</code> file is properly configured with your Supabase URL and Anon Key.
+          </p>
+          <div className="space-y-4">
+            <div className="text-left bg-stone-50 rounded-lg p-4 text-xs font-mono text-stone-500 overflow-x-auto">
+              <div>VITE_SUPABASE_URL=https://your-project.supabase.co</div>
+              <div>VITE_SUPABASE_ANON_KEY=your-anon-key</div>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reload Application
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

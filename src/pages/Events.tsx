@@ -11,6 +11,8 @@ import { formatDate } from '../utils/helpers';
 import { eventTypeColors, eventTypeBgColors } from '../constants/colors';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../hooks/useData';
 import { useNotification } from '../hooks/useNotification';
+import { useAuth } from '../contexts/AuthContext';
+import { TableSkeleton } from '../components/LoadingStates';
 import type { Event } from '../services/api';
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,6 +20,7 @@ const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 export default function Events() {
   const navigate = useNavigate();
+  const { isAdminOrStaff } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -72,6 +75,37 @@ export default function Events() {
     }
     return days;
   }, [firstDay, daysInMonth]);
+
+  if (eventsLoading) {
+    return (
+      <>
+        <Header />
+        <ErrorBoundary>
+          <main className="p-6 lg:p-8 space-y-8">
+            <div className="flex justify-between items-center">
+              <div className="h-8 bg-stone-200 rounded-lg w-48 animate-pulse" />
+              <div className="h-10 bg-stone-200 rounded-xl w-32 animate-pulse" />
+            </div>
+            {view === 'calendar' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3">
+                  <div className="bg-white rounded-xl border border-stone-200 p-6 h-[600px] animate-pulse" />
+                </div>
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="h-8 bg-stone-200 rounded w-32 animate-pulse" />
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-20 bg-stone-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <TableSkeleton rows={10} columns={6} />
+            )}
+          </main>
+        </ErrorBoundary>
+      </>
+    );
+  }
 
   const handleAddEvent = async () => {
     if (!formData.title || !formData.date || !formData.time) {
@@ -202,13 +236,15 @@ export default function Events() {
                   List
                 </button>
               </div>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Event
-              </button>
+              {isAdminOrStaff && (
+                <button 
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Event
+                </button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -366,31 +402,33 @@ export default function Events() {
                           {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(event);
-                            }}
-                            className="p-2 rounded-lg hover:bg-stone-100 transition-colors"
-                            title="Edit Event"
-                          >
-                            <Edit className="w-4 h-4 text-stone-500" />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-                                handleDeleteEvent(event.id);
-                              }
-                            }}
-                            className="p-2 rounded-lg hover:bg-rose-50 transition-colors"
-                            title="Delete Event"
-                          >
-                            <Trash2 className="w-4 h-4 text-rose-500" />
-                          </button>
-                        </div>
+                      <td className="py-4 px-6 text-right">
+                        {isAdminOrStaff && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(event);
+                              }}
+                              className="p-2 rounded-lg hover:bg-stone-100 transition-colors"
+                              title="Edit Event"
+                            >
+                              <Edit className="w-4 h-4 text-stone-500" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+                                  handleDeleteEvent(event.id);
+                                }
+                              }}
+                              className="p-2 rounded-lg hover:bg-rose-50 transition-colors"
+                              title="Delete Event"
+                            >
+                              <Trash2 className="w-4 h-4 text-rose-500" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </motion.tr>
                   ))}
@@ -451,32 +489,34 @@ export default function Events() {
                     <p className="text-sm text-stone-600">{selectedEvent.description || 'No description provided.'}</p>
                   </div>
 
-                  <div className="flex gap-3 mt-6">
-                    <button 
-                      onClick={() => openEditModal(selectedEvent)}
-                      className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-medium hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit Event
-                    </button>
-                    <button 
-                      onClick={() => handleManageAttendees(selectedEvent.id)}
-                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow"
-                    >
-                      Manage Attendees
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-                          handleDeleteEvent(selectedEvent.id);
-                          setSelectedEvent(null);
-                        }
-                      }}
-                      className="py-2.5 px-4 rounded-xl bg-rose-500 text-white font-medium shadow-lg shadow-rose-500/25 hover:bg-rose-600 hover:shadow-rose-500/40 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {isAdminOrStaff && (
+                    <div className="flex gap-3 mt-6">
+                      <button 
+                        onClick={() => openEditModal(selectedEvent)}
+                        className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Edit Event
+                      </button>
+                      <button 
+                        onClick={() => handleManageAttendees(selectedEvent.id)}
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow"
+                      >
+                        Manage Attendees
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+                            handleDeleteEvent(selectedEvent.id);
+                            setSelectedEvent(null);
+                          }
+                        }}
+                        className="py-2.5 px-4 rounded-xl bg-rose-500 text-white font-medium shadow-lg shadow-rose-500/25 hover:bg-rose-600 hover:shadow-rose-500/40 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

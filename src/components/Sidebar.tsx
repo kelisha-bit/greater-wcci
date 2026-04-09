@@ -38,13 +38,37 @@ const menuItems = [
 
 export default function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useUI();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdminOrStaff, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login', { replace: true });
+    try {
+      await signOut();
+      // AppRoutes will naturally redirect to /login because session becomes null,
+      // but explicit navigation ensures it happens immediately if context hasn't updated yet.
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
+
+  // Filter menu items based on user role
+  const allowedMenuItems = menuItems.filter(item => {
+    if (item.label === 'Settings') return isAdmin;
+    if (isAdmin) return true;
+    if (isStaff) {
+      return [
+        'Dashboard',
+        'Events',
+        'Attendance',
+        'Profile',
+        'Visitors',
+        'Announcements',
+      ].includes(item.label);
+    }
+    if (isAdminOrStaff) return true;
+    return ['Profile', 'Events', 'Sermons'].includes(item.label);
+  });
 
   return (
     <>
@@ -59,12 +83,12 @@ export default function Sidebar() {
       <motion.aside
         initial={false}
         animate={{ width: sidebarOpen ? 256 : 80 }}
-        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-stone-800 via-stone-900 to-stone-950 text-white z-50 shadow-2xl transform transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-stone-800 via-stone-900 to-stone-950 text-white z-50 shadow-2xl transform transition-transform duration-300 flex flex-col lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-stone-700/50">
+      <div className="h-16 flex-none flex items-center justify-between px-4 border-b border-stone-700/50">
         <motion.div
           initial={false}
           animate={{ opacity: sidebarOpen ? 1 : 0 }}
@@ -92,8 +116,8 @@ export default function Sidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="mt-6 px-3">
-        {menuItems.map((item) => (
+      <nav className="mt-6 px-3 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-transparent pb-32">
+        {allowedMenuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -114,7 +138,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom: account + sign out */}
-      <div className="absolute bottom-6 left-3 right-3 space-y-2">
+      <div className="absolute bottom-6 left-3 right-3 space-y-2 bg-gradient-to-t from-stone-900 via-stone-900 to-transparent pt-4">
         {sidebarOpen && user?.email && (
           <p className="truncate px-1 text-xs text-stone-500" title={user.email}>
             {user.email}

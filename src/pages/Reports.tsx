@@ -335,7 +335,7 @@ export default function Reports() {
   const [expenseApproved, setExpenseApproved] = useState(0);
   const [expensePending, setExpensePending] = useState(0);
   const [expenseCount, setExpenseCount] = useState(0);
-  const [_expenseCategoryTotals, _setExpenseCategoryTotals] = useState<Record<string, number>>({});
+  const [, setExpenseCategoryTotals] = useState<Record<string, number>>({});
 
   // Member status breakdown
   const [memberStatusBreakdown, setMemberStatusBreakdown] = useState<{ name: string; value: number; color: string }[]>([]);
@@ -448,7 +448,7 @@ export default function Reports() {
           setExpenseApproved(expenseStatsRes.data.approvedExpenses);
           setExpensePending(expenseStatsRes.data.pendingExpenses);
           setExpenseCount(expenseStatsRes.data.expenseCount);
-          _setExpenseCategoryTotals(expenseStatsRes.data.categoryTotals);
+          setExpenseCategoryTotals(expenseStatsRes.data.categoryTotals);
         }
       } catch (expenseErr) {
         console.warn('Failed to fetch expense stats:', expenseErr);

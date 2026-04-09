@@ -12,6 +12,7 @@ import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { donationMethodColors, donationCategoryColors } from '../constants/colors';
 import { donationMethodOptions, donationCategoryOptions } from '../constants/options';
+import { CardGridSkeleton, ChartSkeleton, TableSkeleton } from '../components/LoadingStates';
 import { useDonations, useMembers } from '../hooks/useData';
 import { useAPI } from '../hooks/useAPI';
 import { useNotification } from '../hooks/useNotification';
@@ -553,6 +554,32 @@ export default function Donations() {
     }
     setShowDonorModal(true);
   }, [api.donations]);
+
+  if (isLoading) {
+    return (
+      <>
+        <Header />
+        <ErrorBoundary>
+          <main className="p-6 lg:p-8 space-y-8">
+            <div className="space-y-2">
+              <div className="h-8 bg-stone-200 rounded-lg w-48 animate-pulse" />
+              <div className="h-4 bg-stone-100 rounded-lg w-64 animate-pulse" />
+            </div>
+            
+            <CardGridSkeleton count={4} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartSkeleton />
+              <ChartSkeleton />
+            </div>
+            
+            <TableSkeleton rows={10} columns={6} />
+          </main>
+        </ErrorBoundary>
+      </>
+    );
+  }
+
   if (error) {
     return (
       <div className="p-8 text-center">

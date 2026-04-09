@@ -88,14 +88,14 @@ export default function Settings() {
          showToast('success', 'Password Updated', 'Your password has been successfully updated.');
          setPasswords({ current: '', new: '', confirm: '' });
        } else {
-         showToast('error', 'Update Failed', response.error || 'Failed to update password.');
-       }
-     } catch (error) {
-       showToast('error', 'Error', 'An unexpected error occurred.');
-     } finally {
-       setIsSaving(false);
-     }
-   };
+        showToast('error', 'Update Failed', response.error || 'Failed to update password.');
+      }
+    } catch {
+      showToast('error', 'Error', 'An unexpected error occurred.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -120,8 +120,8 @@ export default function Settings() {
             churchAddress: response.data.churchAddress || '',
           });
         }
-      } catch (error) {
-        console.error('Failed to fetch settings:', error);
+      } catch (err) {
+        console.error('Failed to fetch settings:', err);
       } finally {
         // Loading complete
       }
@@ -170,7 +170,7 @@ export default function Settings() {
       } else {
         showToast('error', 'Update Failed', errorMessage);
       }
-    } catch (error) {
+    } catch {
       showToast('error', 'Error', 'An unexpected error occurred.');
     } finally {
       setIsSaving(false);
@@ -194,7 +194,7 @@ export default function Settings() {
       } else {
         showToast('error', 'Upload Failed', response.error || 'Failed to upload photo.');
       }
-    } catch (error) {
+    } catch {
       showToast('error', 'Error', 'An unexpected error occurred during upload.');
     } finally {
       setIsUploading(false);

@@ -217,7 +217,7 @@ export class TokenManager {
       return decodeURIComponent(atob(output).split('').map((c) => {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
-    } catch (error) {
+    } catch {
       return atob(output);
     }
   }

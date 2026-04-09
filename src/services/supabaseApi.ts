@@ -122,11 +122,10 @@ export const supabaseAuthApi = {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
 
-    // 1. Check user_metadata for role (common for Supabase Auth)
-    const metadataRole = user.app_metadata?.role || user.user_metadata?.role
+    const metadataRoleRaw = user.app_metadata?.role || user.user_metadata?.role
+    const metadataRole = typeof metadataRoleRaw === 'string' ? metadataRoleRaw.toLowerCase() : metadataRoleRaw
     if (metadataRole === 'admin' || metadataRole === 'staff') return true
 
-    // 2. Check user_roles table (custom implementation)
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
@@ -138,7 +137,62 @@ export const supabaseAuthApi = {
       return false
     }
 
-    return data?.role === 'admin' || data?.role === 'staff'
+    const dbRole = typeof data?.role === 'string' ? data.role.toLowerCase() : data?.role
+    return dbRole === 'admin' || dbRole === 'staff'
+  },
+
+  async getRoleFlags(): Promise<{
+    role: 'admin' | 'staff' | 'member' | 'guest'
+    isAdmin: boolean
+    isStaff: boolean
+    isAdminOrStaff: boolean
+  }> {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return {
+        role: 'guest',
+        isAdmin: false,
+        isStaff: false,
+        isAdminOrStaff: false
+      }
+    }
+
+    const metadataRoleRaw = user.app_metadata?.role || user.user_metadata?.role
+    const metadataRole = (typeof metadataRoleRaw === 'string'
+      ? metadataRoleRaw.toLowerCase()
+      : metadataRoleRaw) as
+        | 'admin'
+        | 'staff'
+        | 'member'
+        | 'guest'
+        | undefined
+
+    let dbRole: 'admin' | 'staff' | 'member' | 'guest' | null = null
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!error && data?.role) {
+      const normalized = typeof data.role === 'string' ? data.role.toLowerCase() : data.role
+      dbRole = normalized as 'admin' | 'staff' | 'member' | 'guest'
+    }
+
+    const effectiveRole: 'admin' | 'staff' | 'member' | 'guest' =
+      dbRole || metadataRole || 'member'
+
+    const isAdmin = effectiveRole === 'admin'
+    const isStaff = effectiveRole === 'staff'
+
+    return {
+      role: effectiveRole,
+      isAdmin,
+      isStaff,
+      isAdminOrStaff: isAdmin || isStaff
+    }
   }
 }
 
@@ -287,7 +341,7 @@ export const supabaseMembersApi = {
     const { data, error } = await supabase.from('members').select('date_of_birth')
 
     if (error) throw error
-    return (data ?? []).map((r) => r.date_of_birth)
+    return (data ?? []).map((r: { date_of_birth: string | null }) => r.date_of_birth)
   },
 
   /** Members with a stored date of birth (minimal columns for birthday lists). */
@@ -697,6 +751,9 @@ export const supabaseAuditApi = {
     new_values?: any
     changed_fields?: string[] | null
   }) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id ?? null
+
     const { error } = await supabase
       .from('audit_log')
       .insert({
@@ -706,6 +763,7 @@ export const supabaseAuditApi = {
         old_values: entry.old_values ?? null,
         new_values: entry.new_values ?? null,
         changed_fields: entry.changed_fields ?? null,
+        user_id: userId
       })
     if (error) throw error
   }
@@ -1063,7 +1121,7 @@ export const supabaseMinistriesApi = {
       counts.set(id, (counts.get(id) || 0) + 1)
     }
 
-    return (mins || []).map((m) => ({
+    return (mins || []).map((m: { id: string; name: string }) => ({
       id: m.id,
       name: m.name,
       memberCount: counts.get(m.id) || 0,
@@ -1109,16 +1167,16 @@ export const supabaseMinistriesApi = {
     if (error) throw error
     if (!links || links.length === 0) return []
 
-    const ministryIds = Array.from(new Set(links.map((link) => link.ministry_id)))
+    const ministryIds = Array.from(new Set(links.map((link: { ministry_id: string }) => link.ministry_id)))
     const { data: ministries, error: ministriesError } = await supabase
       .from('ministries')
       .select('id, name')
       .in('id', ministryIds)
 
     if (ministriesError) throw ministriesError
-    const ministryMap = new Map((ministries || []).map((item) => [item.id, item.name]))
+    const ministryMap = new Map((ministries || []).map((item: { id: string; name: string }) => [item.id, item.name]))
 
-    return links.map((link) => ({
+    return links.map((link: { id: string; member_id: string; ministry_id: string; role: 'leader' | 'member' | 'volunteer'; joined_date: string }) => ({
       id: link.id,
       memberId: link.member_id,
       ministryId: link.ministry_id,
@@ -1407,12 +1465,12 @@ export const supabaseExpensesApi = {
 
     if (error) throw error
 
-    const totalExpenses = data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
-    const approvedExpenses = data?.filter(e => e.is_approved).reduce((sum, e) => sum + Number(e.amount), 0) || 0
+    const totalExpenses = data?.reduce((sum: number, e: { amount: number }) => sum + Number(e.amount), 0) || 0
+    const approvedExpenses = data?.filter((e: { is_approved: boolean }) => e.is_approved).reduce((sum: number, e: { amount: number }) => sum + Number(e.amount), 0) || 0
     const pendingExpenses = totalExpenses - approvedExpenses
 
     const categoryTotals: Record<string, number> = {}
-    data?.forEach(e => {
+    data?.forEach((e: { category: string; amount: number }) => {
       categoryTotals[e.category] = (categoryTotals[e.category] || 0) + Number(e.amount)
     })
 

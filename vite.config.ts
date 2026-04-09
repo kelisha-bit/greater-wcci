@@ -102,7 +102,7 @@ export default defineConfig(async () => {
     }),
   ];
   try {
-    // @ts-expect-error
+    // @ts-expect-error: .vite-source-tags.js may not exist in all environments
     const m = await import('./.vite-source-tags.js');
     plugins.push(m.sourceTags());
   } catch {

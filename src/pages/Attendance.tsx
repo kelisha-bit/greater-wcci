@@ -503,7 +503,7 @@ export default function Attendance() {
       window.URL.revokeObjectURL(url);
       
       showToast('success', 'Export Complete', 'Attendance report has been downloaded');
-    } catch (error) {
+    } catch {
       showToast('error', 'Export Failed', 'Could not export attendance report');
     }
   };

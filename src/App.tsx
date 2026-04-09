@@ -48,7 +48,7 @@ function AppLayout() {
 }
 
 function AppRoutes() {
-  const { session, loading } = useAuth();
+  const { session, loading, isAdminOrStaff, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -74,19 +74,40 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/members" element={<Members />} />
-          <Route path="/visitors" element={<Visitors />} />
+          {/* Dashboard - restricted for members, redirect to profile */}
+          <Route 
+            path="/" 
+            element={isAdminOrStaff ? <Dashboard /> : <Navigate to="/profile" replace />} 
+          />
+          
+          {/* Members - restricted for members */}
+          {isAdmin && <Route path="/members" element={<Members />} />}
+          {isAdminOrStaff && <Route path="/visitors" element={<Visitors />} />}
+          
+          {/* Events - allowed for everyone */}
           <Route path="/events" element={<Events />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/donations" element={<Donations />} />
-          <Route path="/expenses" element={<Expenses />} />
+          
+          {/* Attendance, Donations, Expenses - restricted for members */}
+          {isAdminOrStaff && <Route path="/attendance" element={<Attendance />} />}
+          {isAdmin && <Route path="/donations" element={<Donations />} />}
+          {isAdmin && <Route path="/expenses" element={<Expenses />} />}
+          
+          {/* Sermons - allowed for everyone */}
           <Route path="/sermons" element={<Sermons />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/announcements" element={<Announcements />} />
-          <Route path="/settings" element={<Settings />} />
+          
+          {/* Reports, Announcements - restricted for members */}
+          {isAdmin && <Route path="/reports" element={<Reports />} />}
+          {isAdminOrStaff && <Route path="/announcements" element={<Announcements />} />}
+          
+          {/* Settings - restricted to admins only */}
+          {isAdmin && <Route path="/settings" element={<Settings />} />}
+          
+          {/* Profile - allowed for everyone */}
           <Route path="/profile" element={<Profile />} />
-          <Route path="/members/:id" element={<Profile />} />
+          
+          {/* Single member profile - only for admin/staff */}
+          {isAdmin && <Route path="/members/:id" element={<Profile />} />}
+          
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

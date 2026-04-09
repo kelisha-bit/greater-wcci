@@ -79,6 +79,7 @@ export interface Member {
   departments: string[];
   education?: string;
   hometown?: string;
+  occupation?: string;
   emergencyContact?: {
     name: string;
     phone: string;
@@ -88,6 +89,9 @@ export interface Member {
   /** Public URL from Supabase Storage or elsewhere (`members.profile_image_url`) */
   profileImageUrl?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   createdAt?: string;
   ministries?: MemberMinistryLink[];
 }
@@ -249,13 +253,14 @@ function transformMemberRow(row: any): Member {
     email: row.email,
     phone: row.phone || '',
     status: row.membership_status === 'visitor' ? 'new' : row.membership_status as 'active' | 'inactive' | 'new',
-    role: row.role || 'member',
+    role: row.role || 'member', // Use the fetched role, default to 'member'
     primaryMinistry: row.primary_ministry || '',
     joinDate: row.join_date,
     dateOfBirth: row.date_of_birth || '',
     departments: row.departments || [],
     education: row.education || '',
     hometown: row.hometown || '',
+    occupation: row.occupation || '',
     emergencyContact: {
       name: row.emergency_contact_name || '',
       phone: row.emergency_contact_phone || '',
@@ -264,6 +269,9 @@ function transformMemberRow(row: any): Member {
     notes: row.notes || '',
     profileImageUrl: row.profile_image_url || undefined,
     address: row.address || '',
+    city: row.city || '',
+    state: row.state || '',
+    zipCode: row.zip_code || '',
     createdAt: row.created_at || undefined,
   };
 }
@@ -375,10 +383,14 @@ export const membersApi = {
         join_date: member.joinDate,
         date_of_birth: member.dateOfBirth || undefined,
         address: member.address || undefined,
+        city: member.city || undefined,
+        state: member.state || undefined,
+        zip_code: member.zipCode || undefined,
         role: member.role,
         primary_ministry: member.primaryMinistry,
         education: member.education,
         hometown: member.hometown,
+        occupation: member.occupation,
         emergency_contact_name: member.emergencyContact?.name,
         emergency_contact_phone: member.emergencyContact?.phone,
         emergency_contact_relationship: member.emergencyContact?.relationship,
@@ -446,6 +458,7 @@ export const membersApi = {
       if (member.primaryMinistry) updates.primary_ministry = member.primaryMinistry;
       if (member.education) updates.education = member.education;
       if (member.hometown) updates.hometown = member.hometown;
+      if (member.occupation) updates.occupation = member.occupation;
       if (member.departments) updates.departments = member.departments;
       if (member.notes) updates.notes = member.notes;
       if (member.emergencyContact) {
@@ -458,6 +471,15 @@ export const membersApi = {
       }
       if (member.address !== undefined) {
         updates.address = member.address || null;
+      }
+      if (member.city !== undefined) {
+        updates.city = member.city || null;
+      }
+      if (member.state !== undefined) {
+        updates.state = member.state || null;
+      }
+      if (member.zipCode !== undefined) {
+        updates.zip_code = member.zipCode || null;
       }
 
       const data = await supabaseApi.members.updateMember(String(id), updates);
@@ -802,7 +824,7 @@ export const eventsApi = {
       });
 
       const rows = data.map(transformEventRow);
-      const ids = rows.map((e) => e.id).filter(Boolean);
+      const ids = rows.map((e: { id: string }) => e.id).filter(Boolean);
       let countMap: Record<string, number> = {};
       if (ids.length > 0) {
         try {
@@ -814,7 +836,7 @@ export const eventsApi = {
 
       return {
         success: true,
-        data: rows.map((e) => ({
+        data: rows.map((e: { id: string; attendees: number }) => ({
           ...e,
           attendees: countMap[e.id] ?? e.attendees,
         })),
@@ -1311,24 +1333,24 @@ function transformDonationRow(row: any): Donation {
  */
 function mapDonationToDb(donation: Partial<Donation>): any {
   const fundMap: Record<string, string> = {
-    // New categories (now supported after migration - mapping to Title Case in DB)
-    'Tithes': 'Tithes',
-    'Offering': 'Offering',
-    'Thanksgiving': 'Thanksgiving',
-    'Prophetic Seed': 'Prophetic Seed',
-    'Building Fund': 'Building Fund',
-    'Missions': 'Missions',
-    'Special Project': 'Special Project',
-    'Wednesday Service': 'Wednesday Service',
-    'Conference': 'Conference',
-    'Others': 'Others',
-    'Other': 'Others',
+    // New categories (now supported after migration - mapping to slugs in DB)
+    'Tithes': 'tithes',
+    'Offering': 'offering',
+    'Thanksgiving': 'thanksgiving',
+    'Prophetic Seed': 'prophetic_seed',
+    'Building Fund': 'building',
+    'Missions': 'missions',
+    'Special Project': 'special_project',
+    'Wednesday Service': 'offering', // Map to offering if no specific slug
+    'Conference': 'other', // Map to other if no specific slug
+    'Others': 'other',
+    'Other': 'other',
     // Legacy mappings for backward compatibility
-    'General Fund': 'Offering',
-    'Youth Ministry': 'Offering',
-    'Children\'s Ministry': 'Offering',
-    'Benevolence': 'Offering',
-    'Music Ministry': 'Offering',
+    'General Fund': 'offering',
+    'Youth Ministry': 'offering',
+    'Children\'s Ministry': 'offering',
+    'Benevolence': 'offering',
+    'Music Ministry': 'offering',
   };
 
   const methodMap: Record<string, string> = {
@@ -1379,20 +1401,20 @@ export const donationsApi = {
 
       // Map fundType if provided (backward compatibility and case mapping)
       const fundMap: Record<string, string> = {
-        'General Fund': 'Offering',
-        'Building Fund': 'Building Fund',
-        'Missions': 'Missions',
-        'Youth Ministry': 'Offering',
-        'Children\'s Ministry': 'Offering',
-        'Tithes': 'Tithes',
-        'Offering': 'Offering',
-        'Thanksgiving': 'Thanksgiving',
-        'Prophetic Seed': 'Prophetic Seed',
-        'Special Project': 'Special Project',
-        'Wednesday Service': 'Wednesday Service',
-        'Conference': 'Conference',
-        'Others': 'Others',
-        'Other': 'Others',
+        'General Fund': 'offering',
+        'Building Fund': 'building',
+        'Missions': 'missions',
+        'Youth Ministry': 'offering',
+        'Children\'s Ministry': 'offering',
+        'Tithes': 'tithes',
+        'Offering': 'offering',
+        'Thanksgiving': 'thanksgiving',
+        'Prophetic Seed': 'prophetic_seed',
+        'Special Project': 'special_project',
+        'Wednesday Service': 'offering',
+        'Conference': 'other',
+        'Others': 'other',
+        'Other': 'other',
       };
       const methodMap: Record<string, string> = {
         'Online': 'online',
@@ -1559,7 +1581,7 @@ export const donationsApi = {
       });
 
       const rows = (data || []).map(transformDonationRow);
-      const totalDonations = rows.reduce((s, r) => s + Number(r.amount), 0);
+      const totalDonations = rows.reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
       const n = rows.length;
       const averageDonation = n > 0 ? Math.round(totalDonations / n) : 0;
 

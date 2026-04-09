@@ -12,6 +12,7 @@ import ActivityFeed from '../components/ActivityFeed';
 import MinistryGroups from '../components/MinistryGroups';
 import { membersApi, attendanceApi, donationsApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { CardGridSkeleton, ChartSkeleton } from '../components/LoadingStates';
 
 interface DashboardStats {
   totalMembers: number;
@@ -97,7 +98,7 @@ export default function Dashboard() {
       const monthlyTotal =
         monthlyDonationsResponse.success && monthlyDonationsResponse.data
           ? monthlyDonationsResponse.data.reduce(
-              (sum, donation) => sum + donation.amount,
+              (sum: number, donation: { amount: number }) => sum + donation.amount,
               0
             )
           : 0;
@@ -105,7 +106,7 @@ export default function Dashboard() {
       const prevMonthTotal =
         prevMonthDonationsResponse.success && prevMonthDonationsResponse.data
           ? prevMonthDonationsResponse.data.reduce(
-              (sum, donation) => sum + donation.amount,
+              (sum: number, donation: { amount: number }) => sum + donation.amount,
               0
             )
           : 0;
@@ -151,14 +152,25 @@ export default function Dashboard() {
       <>
         <Header />
         <ErrorBoundary>
-          <main className="p-6 lg:p-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-stone-200 rounded w-1/3 mb-4"></div>
-              <div className="h-4 bg-stone-200 rounded w-1/2 mb-8"></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-32 bg-stone-200 rounded-2xl"></div>
-                ))}
+          <main className="p-6 lg:p-8 space-y-8">
+            <div className="space-y-2">
+              <div className="h-8 bg-stone-200 rounded-lg w-48 animate-pulse" />
+              <div className="h-4 bg-stone-100 rounded-lg w-64 animate-pulse" />
+            </div>
+            
+            <CardGridSkeleton count={4} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartSkeleton />
+              <ChartSkeleton />
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ChartSkeleton />
+              </div>
+              <div className="lg:col-span-1">
+                <ChartSkeleton />
               </div>
             </div>
           </main>
