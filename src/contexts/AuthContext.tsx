@@ -11,7 +11,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session, User, AuthResponse } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { membersApi, type Member } from '../services/api';
 import { supabaseAuthApi } from '../services/supabaseApi';
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Use singleton promise to prevent concurrent auth checks
         if (!authInitPromise) {
-          authInitPromise = supabase.auth.getSession().then((res) => {
+          authInitPromise = supabase.auth.getSession().then((res: AuthResponse) => {
             authInitPromise = null; // Reset after completion
             return res.data.session;
           }).catch((err: unknown) => {
