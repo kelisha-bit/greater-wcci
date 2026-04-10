@@ -1370,30 +1370,41 @@ function transformDonationRow(row: any): Donation {
   };
 }
 
+/** Values allowed by donations_fund_type_check (see fix_donation_categories.sql). */
+const DONATION_FUND_TYPE_DB: Record<string, string> = {
+  Tithes: 'Tithes',
+  Offering: 'Offering',
+  Thanksgiving: 'Thanksgiving',
+  'Prophetic Seed': 'Prophetic Seed',
+  'Building Fund': 'Building Fund',
+  Missions: 'Missions',
+  'Special Project': 'Special Project',
+  'Wednesday Service': 'Wednesday Service',
+  Conference: 'Conference',
+  Others: 'Others',
+  Other: 'Others',
+  // Legacy UI labels → canonical check-constraint values
+  'General Fund': 'Offering',
+  'Youth Ministry': 'Offering',
+  "Children's Ministry": 'Offering',
+  Benevolence: 'Offering',
+  'Music Ministry': 'Offering',
+  // Slugs still stored in some DBs (getFundCategory reads these)
+  tithes: 'Tithes',
+  offering: 'Offering',
+  thanksgiving: 'Thanksgiving',
+  prophetic_seed: 'Prophetic Seed',
+  building: 'Building Fund',
+  missions: 'Missions',
+  special_project: 'Special Project',
+  other: 'Others',
+};
+
 /**
- * Map display labels to database slugs
+ * Map display labels (or legacy slugs) to fund_type strings accepted by Postgres CHECK.
  */
 function mapDonationToDb(donation: Partial<Donation>): any {
-  const fundMap: Record<string, string> = {
-    // New categories (now supported after migration - mapping to slugs in DB)
-    'Tithes': 'tithes',
-    'Offering': 'offering',
-    'Thanksgiving': 'thanksgiving',
-    'Prophetic Seed': 'prophetic_seed',
-    'Building Fund': 'building',
-    'Missions': 'missions',
-    'Special Project': 'special_project',
-    'Wednesday Service': 'offering', // Map to offering if no specific slug
-    'Conference': 'other', // Map to other if no specific slug
-    'Others': 'other',
-    'Other': 'other',
-    // Legacy mappings for backward compatibility
-    'General Fund': 'offering',
-    'Youth Ministry': 'offering',
-    'Children\'s Ministry': 'offering',
-    'Benevolence': 'offering',
-    'Music Ministry': 'offering',
-  };
+  const fundMap = DONATION_FUND_TYPE_DB;
 
   const methodMap: Record<string, string> = {
     'Online': 'online',
@@ -1411,7 +1422,13 @@ function mapDonationToDb(donation: Partial<Donation>): any {
   if (donation.amount) dbObj.amount = donation.amount;
   if (donation.date) dbObj.donation_date = donation.date;
   if (donation.paymentMethod) dbObj.payment_method = methodMap[donation.paymentMethod] || 'other';
-  if (donation.fundType) dbObj.fund_type = fundMap[donation.fundType] || 'offering';
+  if (donation.fundType) {
+    const raw = donation.fundType;
+    dbObj.fund_type =
+      fundMap[raw] ||
+      fundMap[raw.charAt(0).toUpperCase() + raw.slice(1)] ||
+      'Offering';
+  }
   if (donation.isRecurring !== undefined) dbObj.is_recurring = donation.isRecurring;
   if (donation.recurringFrequency) dbObj.recurring_frequency = donation.recurringFrequency.toLowerCase();
   if (donation.notes) dbObj.notes = donation.notes;
@@ -1441,23 +1458,8 @@ export const donationsApi = {
       const pageSize = options?.pageSize || 10;
       const offset = (page - 1) * pageSize;
 
-      // Map fundType if provided (backward compatibility and case mapping)
-      const fundMap: Record<string, string> = {
-        'General Fund': 'offering',
-        'Building Fund': 'building',
-        'Missions': 'missions',
-        'Youth Ministry': 'offering',
-        'Children\'s Ministry': 'offering',
-        'Tithes': 'tithes',
-        'Offering': 'offering',
-        'Thanksgiving': 'thanksgiving',
-        'Prophetic Seed': 'prophetic_seed',
-        'Special Project': 'special_project',
-        'Wednesday Service': 'offering',
-        'Conference': 'other',
-        'Others': 'other',
-        'Other': 'other',
-      };
+      // Map fundType filter to DB values (must match donations_fund_type_check)
+      const fundMap = DONATION_FUND_TYPE_DB;
       const methodMap: Record<string, string> = {
         'Online': 'online',
         'Check': 'check',
@@ -1469,7 +1471,14 @@ export const donationsApi = {
       
       const queryOptions = {
         ...options,
-        fundType: options?.fundType ? (fundMap[options.fundType] || options.fundType) : undefined,
+        fundType: options?.fundType
+          ? fundMap[options.fundType] ||
+            fundMap[
+              String(options.fundType).charAt(0).toUpperCase() +
+                String(options.fundType).slice(1)
+            ] ||
+            options.fundType
+          : undefined,
         paymentMethod: options?.paymentMethod ? (methodMap[options.paymentMethod] || options.paymentMethod.toLowerCase()) : undefined,
         limit: pageSize,
         offset,
