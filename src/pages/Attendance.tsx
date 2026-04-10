@@ -67,7 +67,7 @@ export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchParams] = useSearchParams();
   const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('eventId') || '');
-  const [selectedDate, setSelectedDate] = useState<string>(getLocalToday());
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -79,7 +79,7 @@ export default function Attendance() {
 
   // Update selectedEventId if query param changes
   const { data: members, isLoading: membersLoading } = useMembers(1, 1000);
-  const { data: events, isLoading: eventsLoading } = useEvents({ status: 'published' });
+  const { data: events, isLoading: eventsLoading } = useEvents();
 
   useEffect(() => {
     if (events && events.length > 0 && !selectedEventId) {
@@ -88,7 +88,7 @@ export default function Attendance() {
   }, [events, selectedEventId]);
 
   const attendanceFilters = useMemo(
-    () => ({ eventId: selectedEventId, date: selectedDate }),
+    () => ({ eventId: selectedEventId, ...(selectedDate ? { date: selectedDate } : {}) }),
     [selectedEventId, selectedDate]
   );
 
@@ -1001,7 +1001,11 @@ export default function Attendance() {
                     {selectedEvent ? selectedEvent.title : 'Select Event'}
                   </h3>
                   <p className="text-sm text-stone-500">
-                    {selectedEvent ? formatDate(selectedEvent.date) : formatDate(selectedDate)}
+                    {selectedEvent
+                      ? formatDate(selectedEvent.date)
+                      : selectedDate
+                        ? formatDate(selectedDate)
+                        : 'All dates'}
                   </p>
                 </div>
               </div>
@@ -1029,6 +1033,14 @@ export default function Attendance() {
                     className="appearance-none pl-9 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-300 transition-all"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate('')}
+                  disabled={!selectedDate}
+                  className="px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-sm font-medium hover:bg-stone-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Clear date
+                </button>
                 
                 {/* Event Select */}
                 <div className="relative">
