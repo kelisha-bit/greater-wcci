@@ -9,7 +9,6 @@ import StatsCard from '../components/StatsCard';
 import AttendanceChart from '../components/AttendanceChart';
 import DonationsChart from '../components/DonationsChart';
 import DemographicsChart from '../components/DemographicsChart';
-import EventsSection from '../components/EventsSection';
 import EventCalendar from '../components/EventCalendar';
 import UpcomingBirthdays from '../components/UpcomingBirthdays';
 import ActivityFeed from '../components/ActivityFeed';
