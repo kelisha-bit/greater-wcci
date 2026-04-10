@@ -103,38 +103,51 @@ const DonationsChart = memo(function DonationsChart() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50"
+      className="bg-white/90 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-xl shadow-stone-200/50 hover:shadow-2xl transition-all duration-300"
     >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-serif font-bold text-stone-800">Donations Overview</h3>
+          <h3 className="text-xl font-serif font-bold text-stone-800 mb-1">Donations Overview</h3>
           <p className="text-sm text-stone-500">Monthly giving trends</p>
         </div>
-        <div className="text-right">
+        <div className="text-right bg-gradient-to-br from-emerald-50 to-teal-50 px-4 py-2 rounded-xl border border-emerald-200/50">
           <p className="text-2xl font-bold text-emerald-600">GH₵{totalYear.toLocaleString()}</p>
-          <p className="text-xs text-stone-500">Total this year</p>
+          <p className="text-xs text-stone-500 font-medium">Total this year</p>
         </div>
       </div>
 
       <div className="h-72">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="animate-pulse text-stone-400">Loading donations data...</div>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+              <div className="text-stone-400 text-sm">Loading donations data...</div>
+            </div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="barGradient1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+                <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#14b8a6" />
+                  <stop offset="100%" stopColor="#0d9488" />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
               <XAxis
                 dataKey="name"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#78716c', fontSize: 12 }}
+                tick={{ fill: '#78716c', fontSize: 12, fontWeight: 500 }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#78716c', fontSize: 12 }}
+                tick={{ fill: '#78716c', fontSize: 12, fontWeight: 500 }}
                 tickFormatter={(value) => `GH₵${value / 1000}k`}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
@@ -144,7 +157,7 @@ const DonationsChart = memo(function DonationsChart() {
                 animationDuration={2000}
               >
                 {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#10b981' : '#14b8a6'} />
+                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'url(#barGradient1)' : 'url(#barGradient2)'} />
                 ))}
               </Bar>
             </BarChart>

@@ -71,36 +71,55 @@ export default function StatsCard({ title, value, change, icon, color, prefix = 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
-      className={`bg-gradient-to-br ${statCardColors[color].bg} border rounded-2xl p-6 shadow-lg shadow-stone-200/50 cursor-pointer hover:shadow-xl transition-all duration-200`}
+      className={`relative bg-gradient-to-br ${statCardColors[color].bg} border border-white/50 rounded-2xl p-6 shadow-xl shadow-stone-200/50 cursor-pointer hover:shadow-2xl transition-all duration-300 overflow-hidden group`}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-stone-500 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-stone-800">
-            {prefix}{displayValue}
-          </p>
+      {/* Decorative gradient overlay */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${statCardColors[color].gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+      
+      {/* Animated background circle */}
+      <motion.div
+        className={`absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gradient-to-br ${statCardColors[color].gradient} opacity-10 group-hover:scale-150 transition-transform duration-500`}
+      />
+      
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-stone-600 mb-2 uppercase tracking-wide">{title}</p>
+            <p className="text-4xl font-bold text-stone-900 tracking-tight">
+              {prefix}{displayValue}
+            </p>
+          </div>
+          <motion.div
+            whileHover={{ rotate: 360, scale: 1.1 }}
+            transition={{ duration: 0.6 }}
+            className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${statCardColors[color].gradient} flex items-center justify-center shadow-lg shadow-${color}-200/50`}
+          >
+            <Icon className="w-7 h-7 text-white" />
+          </motion.div>
         </div>
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${statCardColors[color].gradient} flex items-center justify-center shadow-lg`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-      </div>
 
-      <div className="mt-4 flex items-center gap-2">
-        <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
-          change >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-        }`}>
-          {change >= 0 ? (
-            <TrendingUp className="w-3 h-3" />
-          ) : (
-            <TrendingDown className="w-3 h-3" />
-          )}
-          {Math.abs(change)}%
+        <div className="flex items-center justify-between">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${
+            change >= 0 
+              ? 'bg-emerald-100 text-emerald-700 shadow-sm shadow-emerald-200/50' 
+              : 'bg-rose-100 text-rose-700 shadow-sm shadow-rose-200/50'
+          }`}>
+            {change >= 0 ? (
+              <TrendingUp className="w-3.5 h-3.5" />
+            ) : (
+              <TrendingDown className="w-3.5 h-3.5" />
+            )}
+            {Math.abs(change)}%
+          </div>
+          <span className="text-xs text-stone-500 font-medium">vs last month</span>
         </div>
-        <span className="text-xs text-stone-500">vs last month</span>
       </div>
+      
+      {/* Hover indicator */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-stone-300 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </motion.div>
   );
 }
