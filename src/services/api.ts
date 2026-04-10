@@ -367,8 +367,11 @@ export const membersApi = {
     try {
       const member = await supabaseApi.members.getCurrentUserProfile();
       return { success: true, data: transformMemberRow(member) };
-    } catch (error) {
-      console.error('Failed to fetch current user profile:', error);
+    } catch (error: any) {
+      // Suppress lock timeout errors in console as they're handled by retry logic
+      if (error?.name !== 'NavigatorLockAcquireTimeoutError') {
+        console.error('Failed to fetch current user profile:', error);
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch profile',

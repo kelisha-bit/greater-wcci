@@ -11,7 +11,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { Session, User, AuthResponse } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { membersApi, type Member } from '../services/api';
 import { supabaseAuthApi } from '../services/supabaseApi';
@@ -34,6 +34,26 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 // Singleton promise to prevent concurrent auth initialization
 let authInitPromise: Promise<Session | null> | null = null;
+let authInitRetryCount = 0;
+const MAX_AUTH_RETRIES = 3;
+
+// Helper to handle lock timeout errors with retry
+async function getSessionWithRetry(): Promise<Session | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    authInitRetryCount = 0; // Reset on success
+    return data.session;
+  } catch (error: any) {
+    if (error?.name === 'NavigatorLockAcquireTimeoutError' && authInitRetryCount < MAX_AUTH_RETRIES) {
+      authInitRetryCount++;
+      console.warn(`Auth lock timeout, retrying (${authInitRetryCount}/${MAX_AUTH_RETRIES})...`);
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 100 * authInitRetryCount));
+      return getSessionWithRetry();
+    }
+    throw error;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -86,9 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Use singleton promise to prevent concurrent auth checks
         if (!authInitPromise) {
-          authInitPromise = supabase.auth.getSession().then((res: AuthResponse) => {
+          authInitPromise = getSessionWithRetry().then((session) => {
             authInitPromise = null; // Reset after completion
-            return res.data.session;
+            return session;
           }).catch((err: unknown) => {
             authInitPromise = null;
             throw err;
@@ -107,8 +127,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           setRoleFlags({ isAdmin: false, isStaff: false, isAdminOrStaff: false });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error initializing auth:', error);
+        // If it's a lock error after retries, still allow the app to load
+        if (error?.name === 'NavigatorLockAcquireTimeoutError') {
+          console.warn('Auth initialization failed due to lock timeout, continuing without session');
+          setSession(null);
+          setProfile(null);
+          setRoleFlags({ isAdmin: false, isStaff: false, isAdminOrStaff: false });
+        }
       } finally {
         if (!cancelled.current) {
           setLoading(false);
