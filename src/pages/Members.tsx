@@ -293,7 +293,8 @@ export default function Members() {
     if (selectedMember && activeTab !== 'overview') {
       loadTabData(activeTab, selectedMember.id);
     }
-  }, [activeTab, selectedMember, loadTabData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedMember]);
   
   const [formData, setFormData] = useState<FormData>({
     firstName: '',

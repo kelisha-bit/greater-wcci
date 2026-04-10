@@ -3,7 +3,7 @@
  * Encapsulates API calls with loading and error state management
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type {
   Member,
   MemberCreateInput,
@@ -43,12 +43,14 @@ interface UseListState<T> {
  * Avoids re-fetching when a new object reference is passed with the same values.
  */
 function useStableFilters(filters: Record<string, unknown> | undefined): string {
-  const ref = useRef<string>('');
+  const [stableValue, setStableValue] = useState('');
   const serialized = JSON.stringify(filters ?? {});
-  if (ref.current !== serialized) {
-    ref.current = serialized;
-  }
-  return ref.current;
+  
+  useEffect(() => {
+    setStableValue(serialized);
+  }, [serialized]);
+  
+  return stableValue;
 }
 
 // ============================================================================

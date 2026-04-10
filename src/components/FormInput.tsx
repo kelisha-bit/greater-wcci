@@ -4,7 +4,7 @@
  * Supports text, email, password, number, date, and other input types
  */
 
-import React from 'react';
+import React, { useId } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -41,9 +41,10 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
-    const fieldId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const fieldId = id || name || `input-${generatedId}`;
     const errorId = `${fieldId}-error`;
     const helperId = `${fieldId}-helper`;
 
@@ -154,9 +155,10 @@ export const FormSelect = React.forwardRef<HTMLSelectElement, FormSelectProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
-    const fieldId = id || name || `select-${Math.random().toString(36).substr(2, 9)}`;
+    const fieldId = id || name || `select-${generatedId}`;
     const errorId = `${fieldId}-error`;
     const helperId = `${fieldId}-helper`;
 
@@ -260,9 +262,10 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
     },
     ref
   ) => {
+    const generatedId = useId();
     const isError = Boolean(error);
     const isDisabled = disabled || isLoading;
-    const fieldId = id || name || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+    const fieldId = id || name || `textarea-${generatedId}`;
     const errorId = `${fieldId}-error`;
     const helperId = `${fieldId}-helper`;
 
@@ -358,8 +361,9 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, FormCheckboxProps
     },
     ref
   ) => {
+    const generatedId = useId();
     const isError = Boolean(error);
-    const fieldId = id || name || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
+    const fieldId = id || name || `checkbox-${generatedId}`;
     const errorId = `${fieldId}-error`;
     const helperId = `${fieldId}-helper`;
 

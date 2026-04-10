@@ -42,7 +42,7 @@ export function isValidEmail(email: string): boolean {
  * Validate phone number (basic international format)
  */
 export function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^[\d\s\-\+\(\)]{10,}$/;
+  const phoneRegex = /^[\d\s\-+()]{10,}$/;
   return phoneRegex.test(phone.replace(/\s/g, ''));
 }
 

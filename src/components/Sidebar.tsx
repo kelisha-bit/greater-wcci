@@ -47,7 +47,7 @@ function useNextService() {
 
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => {}, 0);
 
     // Debounce the fetch to prevent concurrent requests
     const fetchEvent = async () => {
@@ -71,11 +71,12 @@ function useNextService() {
     };
 
     // Delay fetch slightly to let auth settle
-    timeoutId = setTimeout(fetchEvent, 100);
+    clearTimeout(timeoutId);
+    const actualTimeoutId = setTimeout(fetchEvent, 100);
 
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
+      clearTimeout(actualTimeoutId);
     };
   }, []);
 

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { RefreshCw, Plus, UserPlus, Calendar, DollarSign, TrendingUp, Sparkles } from 'lucide-react';
+import { RefreshCw, UserPlus, Calendar, TrendingUp, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import ErrorBoundary from '../components/ErrorBoundary';
