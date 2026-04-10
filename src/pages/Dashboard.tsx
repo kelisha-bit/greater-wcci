@@ -10,6 +10,7 @@ import AttendanceChart from '../components/AttendanceChart';
 import DonationsChart from '../components/DonationsChart';
 import DemographicsChart from '../components/DemographicsChart';
 import EventsSection from '../components/EventsSection';
+import EventCalendar from '../components/EventCalendar';
 import UpcomingBirthdays from '../components/UpcomingBirthdays';
 import ActivityFeed from '../components/ActivityFeed';
 import MinistryGroups from '../components/MinistryGroups';
@@ -254,7 +255,7 @@ export default function Dashboard() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="mb-8 rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-100 via-white to-orange-100 p-5 sm:p-6 lg:p-8 shadow-xl shadow-amber-200/30"
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
@@ -318,7 +319,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-2xl text-sm shadow-sm"
+              className="flex items-center gap-3 px-5 py-4 bg-white/70 border border-white/70 rounded-2xl text-sm shadow-sm backdrop-blur"
             >
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
               <span className="font-semibold text-amber-800">
@@ -381,8 +382,10 @@ export default function Dashboard() {
           </div>
 
           {/* Activity Feed Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-            <EventsSection />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
+            <div className="lg:col-span-2">
+              <EventCalendar />
+            </div>
             <UpcomingBirthdays />
             <ActivityFeed />
           </div>

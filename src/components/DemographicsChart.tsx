@@ -63,7 +63,7 @@ const DemographicsChart = memo(function DemographicsChart() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50"
+      className="h-full bg-white/90 backdrop-blur-xl rounded-3xl border border-stone-200/60 p-6 shadow-xl shadow-stone-200/40 flex flex-col"
     >
       <div className="mb-6">
         <h3 className="text-lg font-serif font-bold text-stone-800">Member Demographics</h3>
@@ -72,7 +72,7 @@ const DemographicsChart = memo(function DemographicsChart() {
         </p>
       </div>
 
-      <div className="h-56">
+      <div className="flex-1 min-h-56">
         {loading ? (
           <div className="h-full flex items-center justify-center text-stone-400 text-sm animate-pulse">
             Loading…

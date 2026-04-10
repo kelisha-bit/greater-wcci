@@ -86,7 +86,7 @@ export default function EventsSection() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50 min-h-[200px]"
+      className="h-full bg-white/90 backdrop-blur-xl rounded-3xl border border-stone-200/60 p-6 shadow-xl shadow-stone-200/40 min-h-[200px] flex flex-col"
     >
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -110,7 +110,7 @@ export default function EventsSection() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex-1 space-y-4">
         {loading ? (
           <div className="space-y-4">
             {[...Array(4)].map((_, index) => (

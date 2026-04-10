@@ -72,7 +72,7 @@ export default function MinistryGroups() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
-      className="bg-white/80 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-lg shadow-stone-200/50 lg:col-span-2"
+      className="h-full bg-white/90 backdrop-blur-xl rounded-3xl border border-stone-200/60 p-6 shadow-xl shadow-stone-200/40 flex flex-col lg:col-span-2"
     >
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -88,7 +88,7 @@ export default function MinistryGroups() {
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex-1 space-y-3">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (

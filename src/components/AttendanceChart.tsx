@@ -84,7 +84,7 @@ const AttendanceChart = memo(function AttendanceChart() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-white/90 backdrop-blur-xl rounded-2xl border border-stone-200/50 p-6 shadow-xl shadow-stone-200/50 hover:shadow-2xl transition-all duration-300"
+      className="h-full bg-white/90 backdrop-blur-xl rounded-3xl border border-stone-200/60 p-6 shadow-xl shadow-stone-200/40 hover:shadow-2xl transition-all duration-300 flex flex-col"
     >
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -105,7 +105,7 @@ const AttendanceChart = memo(function AttendanceChart() {
         </div>
       </div>
 
-      <div className="h-72">
+      <div className="flex-1 min-h-[18rem]">
         {loading ? (
           <div className="h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
