@@ -270,8 +270,10 @@ export default function Profile() {
     <ErrorBoundary>
     <main className="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/20 to-white">
 
+      {/* Sticky profile header area (breadcrumb + hero) */}
+      <div className="sticky top-16 z-30 border-b border-stone-200 bg-white shadow-sm">
       {/* Breadcrumb below app header — keeps trail out of the hero so it cannot clash with the profile title */}
-      <nav aria-label="Breadcrumb" className="relative z-10 border-b border-stone-200/50 bg-white/70 px-6 py-3 backdrop-blur-xl lg:px-8">
+      <nav aria-label="Breadcrumb" className="border-b border-stone-200 bg-white px-6 py-3 lg:px-8">
         <div className="mx-auto flex max-w-6xl items-center gap-2 text-sm text-stone-600">
           <button type="button" onClick={() => navigate('/members')} className="rounded-lg px-2 py-1 font-medium text-stone-700 transition-colors hover:bg-amber-50 hover:text-amber-800">Members</button>
           <ChevronRight className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
@@ -284,13 +286,12 @@ export default function Profile() {
       </nav>
 
       {/*  Hero cover — layered depth + mesh  */}
-      <div className={`relative mt-0 min-h-[13rem] overflow-hidden sm:h-64 sm:min-h-0 bg-gradient-to-br ${gradient}`}>
+      <div className={`relative mt-0 min-h-[10rem] overflow-hidden border-t border-stone-200/70 sm:h-52 sm:min-h-0 bg-gradient-to-br ${gradient}`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_20%,rgba(255,255,255,0.25),transparent)]" />
         <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-20 left-1/4 h-56 w-56 rounded-full bg-black/10 blur-2xl" />
         <div className="absolute inset-0 bg-black/15" />
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00em0wIDI0YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00ek0xMiAxNmMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHptMCAyNGMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-25" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-stone-50 via-stone-50/70 to-transparent" />
         {/* save toast */}
         <AnimatePresence>
           {saveSuccess && (
@@ -307,10 +308,11 @@ export default function Profile() {
           )}
         </AnimatePresence>
       </div>
+      </div>
 
       <div className="mx-auto max-w-6xl px-6 pb-12 lg:px-8">
         {/*  Avatar row — z-10 so title/avatar sit above the hero when overlapping; min-w-0 avoids long names colliding with actions */}
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-20 mb-8">
+        <div className="relative z-40 flex flex-col gap-4 -mt-16 mb-8 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex min-w-0 flex-1 items-end gap-5">
             {/* avatar */}
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", bounce: 0.4 }} className="relative shrink-0 group">
@@ -345,14 +347,14 @@ export default function Profile() {
               </div>
             </motion.div>
             {/* name block */}
-            <div className="min-w-0 pb-2">
-              <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="scroll-mt-20 break-words font-serif text-3xl font-bold tracking-tight text-stone-900 lg:text-4xl">{name}</motion.h1>
+            <div className="min-w-0 pb-1 sm:pb-2">
+              <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="scroll-mt-20 break-words font-serif text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl lg:text-[2.1rem]">{name}</motion.h1>
               {subtitleText && (
-                <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.12 }} className="mt-1.5 max-w-xl text-sm font-medium text-stone-600 md:text-base">
+                <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.12 }} className="mt-1 max-w-2xl text-sm font-medium leading-relaxed text-stone-600 md:text-[0.95rem]">
                   {subtitleText}
                 </motion.p>
               )}
-              <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.14 }} className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500">
+              <motion.p initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.14 }} className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500">
                 {tenureLabel && (
                   <span className="inline-flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-amber-600" aria-hidden />
@@ -366,7 +368,7 @@ export default function Profile() {
                   </span>
                 )}
               </motion.p>
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="mt-3 flex flex-wrap items-center gap-2">
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="px-3 py-1 bg-white/90 backdrop-blur rounded-lg text-sm font-medium text-stone-700 shadow-sm border border-stone-200 flex items-center gap-1.5">
                   <Award className="w-3.5 h-3.5 text-amber-600" />
                   {local.role || 'Member'}
