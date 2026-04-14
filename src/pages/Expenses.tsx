@@ -501,6 +501,27 @@ export default function Expenses() {
               <h1 className="text-2xl font-bold text-stone-900">Expenses</h1>
               <p className="text-sm text-stone-500">Track and manage church expenses</p>
             </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExport}
+                className="px-4 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+              {canManageExpenses && (
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowAddModal(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-shadow flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Record Expense
+                </button>
+              )}
+            </div>
           </div>
           
           {/* Stats Cards */}
@@ -708,28 +729,6 @@ export default function Expenses() {
               <option value="year">This Year</option>
               <option value="custom">Custom Range</option>
             </select>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-            {canManageExpenses && (
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowAddModal(true);
-                }}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-medium shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-shadow flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Record Expense
-              </button>
-            )}
           </div>
         </div>
 

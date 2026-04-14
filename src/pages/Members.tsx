@@ -151,6 +151,7 @@ export default function Members() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedMinistry, setSelectedMinistry] = useState<string>('all');
+  const [selectedTitheFilter, setSelectedTitheFilter] = useState<'all' | 'tithers' | 'faithful' | 'irregular' | 'non'>('all');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editForm, setEditForm] = useState<EditMemberForm>({
@@ -236,6 +237,85 @@ export default function Members() {
   } = useMemberStats();
   const { create: createMember } = useCreateMember();
   const { show: showToast } = useNotification();
+
+  const [titheSummaryByMember, setTitheSummaryByMember] = useState<Record<string, { total6m: number; total3m: number; isFaithful: boolean }>>({});
+  const [titheSummaryLoading, setTitheSummaryLoading] = useState(false);
+
+  const getLastNMonthKeys = useCallback((n: number) => {
+    const now = new Date();
+    const keys: string[] = [];
+    for (let i = n - 1; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      keys.push(`${y}-${m}`);
+    }
+    return keys;
+  }, []);
+
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+
+    const loadTitheSummary = async () => {
+      setTitheSummaryLoading(true);
+      try {
+        const monthKeys6 = getLastNMonthKeys(6);
+        const monthKeys3 = monthKeys6.slice(-3);
+        const start = `${monthKeys6[0]}-01`;
+        const end = new Date().toISOString().slice(0, 10);
+
+        const res = await api.donations.getDonations({
+          fundType: 'Tithes',
+          dateFrom: start,
+          dateTo: end,
+          pageSize: 10000,
+        });
+
+        if (!res.success || !res.data) {
+          setTitheSummaryByMember({});
+          return;
+        }
+
+        const monthKeySet6 = new Set(monthKeys6);
+        const monthKeySet3 = new Set(monthKeys3);
+        const byMemberMonth6: Record<string, Record<string, number>> = {};
+        const byMemberMonth3: Record<string, Record<string, number>> = {};
+
+        for (const d of res.data) {
+          if (!d.donorId) continue;
+          const mk = String(d.date || '').slice(0, 7);
+          if (monthKeySet6.has(mk)) {
+            if (!byMemberMonth6[d.donorId]) byMemberMonth6[d.donorId] = {};
+            byMemberMonth6[d.donorId][mk] = (byMemberMonth6[d.donorId][mk] || 0) + 1;
+          }
+          if (monthKeySet3.has(mk)) {
+            if (!byMemberMonth3[d.donorId]) byMemberMonth3[d.donorId] = {};
+            byMemberMonth3[d.donorId][mk] = (byMemberMonth3[d.donorId][mk] || 0) + 1;
+          }
+        }
+
+        const summary: Record<string, { total6m: number; total3m: number; isFaithful: boolean }> = {};
+        for (const m of members) {
+          const mm6 = byMemberMonth6[m.id] || {};
+          const mm3 = byMemberMonth3[m.id] || {};
+          const counts6 = Object.values(mm6);
+          const counts3 = Object.values(mm3);
+          const total6m = counts6.reduce((s, n) => s + n, 0);
+          const total3m = counts3.reduce((s, n) => s + n, 0);
+          const isFaithful = counts3.some((n) => n >= 3);
+          summary[m.id] = { total6m, total3m, isFaithful };
+        }
+
+        setTitheSummaryByMember(summary);
+      } catch (e) {
+        setTitheSummaryByMember({});
+      } finally {
+        setTitheSummaryLoading(false);
+      }
+    };
+
+    void loadTitheSummary();
+  }, [api.donations, getLastNMonthKeys, members]);
 
   // Load tab data lazily per member
   const loadTabData = async (tab: ProfileTab, memberId: string) => {
@@ -669,9 +749,19 @@ export default function Members() {
                             member.email.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = selectedStatus === 'all' || member.status === selectedStatus;
       const matchesMinistry = selectedMinistry === 'all' || member.primaryMinistry === selectedMinistry;
-      return matchesSearch && matchesStatus && matchesMinistry;
+      const titheSummary = titheSummaryByMember[member.id];
+      const titheTotal3m = titheSummary?.total3m ?? 0;
+      const titheTotal6m = titheSummary?.total6m ?? 0;
+      const isFaithfulTither = titheSummary?.isFaithful ?? false;
+      const matchesTithes =
+        selectedTitheFilter === 'all' ||
+        (selectedTitheFilter === 'tithers' && titheTotal3m > 0) ||
+        (selectedTitheFilter === 'faithful' && isFaithfulTither) ||
+        (selectedTitheFilter === 'irregular' && titheTotal3m > 0 && !isFaithfulTither) ||
+        (selectedTitheFilter === 'non' && titheTotal6m === 0);
+      return matchesSearch && matchesStatus && matchesMinistry && matchesTithes;
     });
-  }, [members, searchQuery, selectedStatus, selectedMinistry]);
+  }, [members, searchQuery, selectedStatus, selectedMinistry, selectedTitheFilter, titheSummaryByMember]);
 
   const sortedMembers = useMemo(() => {
     const arr = [...filteredMembers];
@@ -712,7 +802,7 @@ export default function Members() {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [searchQuery, selectedStatus, selectedMinistry]);
+  }, [searchQuery, selectedStatus, selectedMinistry, selectedTitheFilter]);
 
   const exportMembersToCSV = useCallback(() => {
     const source = selectedIds.size > 0
@@ -1086,6 +1176,21 @@ export default function Members() {
               </div>
               <div className="relative">
                 <select
+                  value={selectedTitheFilter}
+                  onChange={(e) => setSelectedTitheFilter(e.target.value as any)}
+                  disabled={titheSummaryLoading}
+                  className="appearance-none pl-4 pr-10 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 disabled:opacity-60"
+                >
+                  <option value="all">Tithing: All</option>
+                  <option value="tithers">All tithers</option>
+                  <option value="faithful">Faithful tithers</option>
+                  <option value="irregular">Irregular tithers</option>
+                  <option value="non">Non-tithers</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+              </div>
+              <div className="relative">
+                <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="appearance-none pl-4 pr-10 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30"
@@ -1219,6 +1324,7 @@ export default function Members() {
                     setSearchQuery('');
                     setSelectedStatus('all');
                     setSelectedMinistry('all');
+                    setSelectedTitheFilter('all');
                   }
                 }}
               />
